@@ -80,7 +80,6 @@ class Api:
     """Methods here are callable from JS as window.pywebview.api.<name>(...)."""
 
     def __init__(self):
-        self.window = None
         self.cfg = R.load_config()
         self.log_q: "queue.Queue[dict]" = queue.Queue()
         self._running = False
@@ -206,12 +205,12 @@ class Api:
                 "running": self._running, "stats": stats, "log": logs}
 
     def minimize(self):
-        if self.window:
-            self.window.minimize()
+        if _window:
+            _window.minimize()
 
     def close(self):
-        if self.window:
-            self.window.destroy()
+        if _window:
+            _window.destroy()
 
     # ---------------------------------------------------------------- helpers
     def _parse(self, v):
@@ -273,7 +272,6 @@ def main():
         width=744, height=770,
         frameless=True, easy_drag=False, resizable=False,
         background_color="#15181e")
-    _api.window = _window
 
     if not is_admin():
         R.log.warning("NOT running as administrator — Epic Seven runs elevated, so clicks "
