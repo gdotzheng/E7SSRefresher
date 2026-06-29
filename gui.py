@@ -43,6 +43,15 @@ def _ext_dir() -> str:
 DRYRUN_PATH = os.path.join(_ext_dir(), "dryrun.png")
 BUY_TARGETS = ["covenant_bookmark", "mystic_medal"]
 
+PALETTES = {
+    "light": {"bg": "#f0f0f0", "fg": "#1a1a1a", "muted": "#555555", "entry": "#ffffff",
+              "btn": "#e1e1e1", "btn_active": "#cfcfcf", "text_bg": "#ffffff",
+              "text_fg": "#1a1a1a"},
+    "dark": {"bg": "#1e1e1e", "fg": "#e6e6e6", "muted": "#9a9a9a", "entry": "#2d2d2d",
+             "btn": "#3a3a3a", "btn_active": "#4a4a4a", "text_bg": "#141414",
+             "text_fg": "#d4d4d4"},
+}
+
 
 def is_admin() -> bool:
     try:
@@ -74,8 +83,10 @@ class App:
         self._action_lock = threading.Lock()
         self._action_buttons: list[ttk.Button] = []
         self._bot = None  # set while a run is active, for live stats
+        self.dark = bool(self.cfg.get("dark_mode", False))
 
         self._build_ui()
+        self._apply_theme()
         self._wire_logging()
         self.root.after(120, self._poll_log)
         self.detect_game()
@@ -85,13 +96,20 @@ class App:
         main = ttk.Frame(self.root, padding=10)
         main.pack(fill="both", expand=True)
 
-        # --- status
+        # --- status / header
+        header = ttk.Frame(main)
+        header.pack(fill="x")
+        ttk.Label(header, text="Status", font=("", 10, "bold")).pack(side="left")
+        self.dark_var = tk.BooleanVar(value=self.dark)
+        ttk.Checkbutton(header, text="Dark mode", variable=self.dark_var,
+                        command=self._toggle_theme).pack(side="right")
+
         top = ttk.Frame(main)
         top.pack(fill="x")
         self.status_var = tk.StringVar(value="…")
-        ttk.Label(top, text="Status", font=("", 10, "bold")).pack(anchor="w")
-        ttk.Label(top, textvariable=self.status_var, foreground="#444",
-                  wraplength=420, justify="left").pack(side="left", anchor="w")
+        self.status_label = ttk.Label(top, textvariable=self.status_var, foreground="#555",
+                                      wraplength=420, justify="left")
+        self.status_label.pack(side="left", anchor="w")
         b = ttk.Button(top, text="Detect Game", command=self.detect_game)
         b.pack(side="right")
         self._action_buttons.append(b)
@@ -213,6 +231,42 @@ class App:
                 b.configure(state=state)
             except Exception:
                 pass
+
+    # ----------------------------------------------------------------- theming
+    def _apply_theme(self):
+        p = PALETTES["dark" if self.dark else "light"]
+        self.root.configure(bg=p["bg"])
+        s = ttk.Style()
+        s.theme_use("clam")  # clam is fully colour-customisable (vista/native is not)
+        s.configure(".", background=p["bg"], foreground=p["fg"])
+        s.configure("TFrame", background=p["bg"])
+        s.configure("TLabel", background=p["bg"], foreground=p["fg"])
+        s.configure("TLabelframe", background=p["bg"], bordercolor=p["muted"])
+        s.configure("TLabelframe.Label", background=p["bg"], foreground=p["fg"])
+        s.configure("TCheckbutton", background=p["bg"], foreground=p["fg"])
+        s.map("TCheckbutton", background=[("active", p["bg"])])
+        s.configure("TEntry", fieldbackground=p["entry"], foreground=p["fg"],
+                    insertcolor=p["fg"], bordercolor=p["muted"])
+        s.configure("TButton", background=p["btn"], foreground=p["fg"], bordercolor=p["muted"])
+        s.map("TButton",
+              background=[("active", p["btn_active"]), ("disabled", p["bg"])],
+              foreground=[("disabled", p["muted"])])
+        s.configure("TSeparator", background=p["muted"])
+        self.status_label.configure(foreground=p["muted"])
+        self.txt.configure(bg=p["text_bg"], fg=p["text_fg"], insertbackground=p["fg"])
+
+    def _toggle_theme(self):
+        self.dark = bool(self.dark_var.get())
+        self._apply_theme()
+        # persist just the flag, without disturbing the budget entry
+        try:
+            cfg = R.load_config()
+            cfg["dark_mode"] = self.dark
+            with open(R.CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=2)
+            self.cfg["dark_mode"] = self.dark
+        except Exception as e:
+            R.log.warning("Could not save theme preference: %s", e)
 
     # ----------------------------------------------------------------- config
     def collect_config(self) -> dict:
@@ -336,11 +390,7 @@ def main():
         # elevation declined/failed — run anyway, App will warn
 
     root = tk.Tk()
-    try:
-        ttk.Style().theme_use("vista")
-    except Exception:
-        pass
-    App(root)
+    App(root)  # theme (light/dark) is applied inside App from config
     if not is_admin():
         R.log.warning("NOT running as administrator — Epic Seven runs elevated, so clicks "
                       "will fail with 'Access denied'. Relaunch and accept the UAC prompt.")

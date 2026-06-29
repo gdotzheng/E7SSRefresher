@@ -44,6 +44,7 @@ The panel is intentionally minimal:
 - **Dry Run** – resize + detect templates without clicking (a quick sanity check; opens the result image).
 - **▶ Start / ■ Stop** the refresher, with a live **Stats** panel (refreshes, skystones spent,
   Covenant/Mystic bought, elapsed) and a log.
+- **Dark mode** toggle (top-right) — remembered across launches.
 
 Buy targets are fixed to **Covenant Bookmarks + Mystic Medals**. Other tuning (mode, capture backend,
 match threshold, scroll, etc.) lives in `config.json`. The sections below cover the command line, if you prefer.
