@@ -72,7 +72,7 @@ class QueueLogHandler(logging.Handler):
 class App:
     def __init__(self, root: tk.Tk):
         self.root = root
-        root.title("E7SSRefresher — Secret Shop")
+        root.title("E7SSRefresher - Background Secret Shop Refresher")
         root.geometry("640x560")
         root.minsize(560, 480)
 
@@ -131,10 +131,12 @@ class App:
 
         runrow = ttk.Frame(main)
         runrow.pack(fill="x", pady=(8, 0))
-        self.start_btn = ttk.Button(runrow, text="▶ Start", command=self.start)
+        self.start_btn = ttk.Button(runrow, text="▶ Start", command=self.start,
+                                    style="Start.TButton")
         self.start_btn.pack(side="left", expand=True, fill="x", padx=(0, 2))
         self._action_buttons.append(self.start_btn)
-        self.stop_btn = ttk.Button(runrow, text="■ Stop", command=self.stop, state="disabled")
+        self.stop_btn = ttk.Button(runrow, text="■ Stop", command=self.stop, state="disabled",
+                                   style="Stop.TButton")
         self.stop_btn.pack(side="left", expand=True, fill="x", padx=(2, 0))
 
         ttk.Separator(main).pack(fill="x", pady=8)
@@ -252,6 +254,15 @@ class App:
               background=[("active", p["btn_active"]), ("disabled", p["bg"])],
               foreground=[("disabled", p["muted"])])
         s.configure("TSeparator", background=p["muted"])
+        # coloured run buttons (green Start, red Stop); greyed when disabled
+        s.configure("Start.TButton", background="#2e7d32", foreground="#ffffff")
+        s.map("Start.TButton",
+              background=[("active", "#388e3c"), ("disabled", p["btn"])],
+              foreground=[("disabled", p["muted"])])
+        s.configure("Stop.TButton", background="#c62828", foreground="#ffffff")
+        s.map("Stop.TButton",
+              background=[("active", "#d32f2f"), ("disabled", p["btn"])],
+              foreground=[("disabled", p["muted"])])
         self.status_label.configure(foreground=p["muted"])
         self.txt.configure(bg=p["text_bg"], fg=p["text_fg"], insertbackground=p["fg"])
 
