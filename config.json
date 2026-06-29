@@ -11,6 +11,7 @@
 
   "match_threshold": 0.85,
   "scales": [1.0],
+  "buy_green_dom": 20,
 
   "delays": {
     "after_click": 0.6,

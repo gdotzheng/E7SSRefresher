@@ -189,6 +189,18 @@ class Bot:
             dismissed = True
         return dismissed
 
+    def _is_available(self, screen, btn: "V.Match") -> bool:
+        """An available 'Buy' button is bright green; a sold-out '0/1' button is greyed.
+        Even if the greyed button's text matches the template, its region isn't green-
+        dominant — so a green check tells available from already-bought."""
+        x0 = max(0, btn.x - btn.w // 2)
+        y0 = max(0, btn.y - btn.h // 2)
+        reg = screen[y0:y0 + btn.h, x0:x0 + btn.w]
+        if reg.size == 0:
+            return False
+        b, g, r = reg[:, :, 0].mean(), reg[:, :, 1].mean(), reg[:, :, 2].mean()
+        return (g - max(b, r)) >= self.cfg.get("buy_green_dom", 20)
+
     def _buy_one(self, item_match: "V.Match", target: str):
         # Click the Buy button on the SAME row as the target item (buy buttons share an x,
         # so match by row/y) to open its purchase popup, then confirm — but ONLY after
@@ -200,8 +212,9 @@ class Bot:
             log.info("  no Buy button visible for %s - skipping", target)
             return
         row_buy = min(buys, key=lambda b: abs(b.y - item_match.y))
-        if abs(row_buy.y - item_match.y) > 40:
-            log.info("  couldn't match a Buy button to the %s row - skipping", target)
+        if abs(row_buy.y - item_match.y) > 40 or not self._is_available(screen, row_buy):
+            # No available (green) Buy button in this row -> already bought / sold out.
+            log.info("  %s is already bought or unavailable - skipping", target)
             return
         self.click_match(row_buy, self.d["after_click"])  # should open the purchase popup
         screen = self.grab()

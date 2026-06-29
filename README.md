@@ -89,6 +89,7 @@ Press **F12** (configurable) or **Ctrl+C** to stop.
 | `skystone_budget` | stop once this many skystones have been spent on refreshes (each refresh = 3) |
 | `buy_targets` | which item templates to buy each cycle |
 | `match_threshold` | template-match confidence (0–1); raise if it misclicks, lower if it misses |
+| `buy_green_dom` | min green-dominance for a Buy button to count as available; skips already-bought (greyed `0/1`) items instead of re-attempting |
 | `scales` | extra match scales for minor resolution differences (e.g. `[1.0, 0.95, 1.05]`) |
 | `delays` | pacing between clicks/buys/refreshes |
 | `max_wait_refresh` | seconds to wait for the shop to reappear after a refresh |
