@@ -1,3 +1,6 @@
+# Local Claude config (personal, not shared)
+.claude/settings.local.json
+
 # Python
 __pycache__/
 *.pyc
