@@ -18,6 +18,7 @@ import os
 import sys
 import json
 import time
+import shutil
 import argparse
 import logging
 
@@ -26,7 +27,22 @@ import cv2
 import window as W
 import vision as V
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+
+def _res_dir() -> str:
+    """Read-only bundled resources (PyInstaller bundle when frozen, else this file's dir)."""
+    return getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+
+
+def _ext_dir() -> str:
+    """Writable/editable files (config, dryrun, debug): next to the .exe when frozen,
+    else this file's dir."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+CONFIG_PATH = os.path.join(_ext_dir(), "config.json")
+_DEFAULT_CONFIG = os.path.join(_res_dir(), "config.json")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -66,6 +82,9 @@ def reset_abort():
 
 
 def load_config(path: str = CONFIG_PATH) -> dict:
+    # In the packaged exe, seed an editable config next to the .exe from the bundled default.
+    if path == CONFIG_PATH and not os.path.exists(path) and os.path.exists(_DEFAULT_CONFIG):
+        shutil.copyfile(_DEFAULT_CONFIG, path)
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -119,7 +138,7 @@ class Bot:
         return V.find_all(name, screen, self.th)
 
     def save_debug(self, screen, tag: str):
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"debug_{tag}.png")
+        path = os.path.join(_ext_dir(), f"debug_{tag}.png")
         cv2.imwrite(path, screen)
         log.info("Saved %s", path)
 
@@ -300,7 +319,7 @@ def dry_run(bot: "Bot"):
         except FileNotFoundError as e:
             log.warning("%s", e)
     out = V.annotate(screen, matches)
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dryrun.png")
+    path = os.path.join(_ext_dir(), "dryrun.png")
     cv2.imwrite(path, out)
     for name, ms in matches.items():
         log.info("%-18s %s", name, [f"({m.x},{m.y}) {m.score:.2f}" for m in ms] or "none")

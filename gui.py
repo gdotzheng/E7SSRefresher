@@ -29,7 +29,15 @@ sys.path.insert(0, HERE)
 import window as W       # noqa: E402
 import refresher as R    # noqa: E402
 
-DRYRUN_PATH = os.path.join(HERE, "dryrun.png")
+
+def _ext_dir() -> str:
+    """Writable dir: next to the .exe when frozen, else this file's dir."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return HERE
+
+
+DRYRUN_PATH = os.path.join(_ext_dir(), "dryrun.png")
 BUY_TARGETS = ["covenant_bookmark", "mystic_medal"]
 
 

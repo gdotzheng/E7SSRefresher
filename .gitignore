@@ -5,6 +5,11 @@
 __pycache__/
 *.pyc
 
+# PyInstaller build artifacts (the exe is a build output, distribute via Releases)
+build/
+dist/
+*.spec
+
 # Generated captures / debug output (runtime artifacts, not source)
 dryrun.png
 gui_capture.png

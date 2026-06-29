@@ -7,12 +7,19 @@ returned coordinates are client-relative pixel centers, ready to hand to an Inpu
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 
 import cv2
 import numpy as np
 
-TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+
+def _res_dir() -> str:
+    """Read-only resources: the PyInstaller bundle dir when frozen, else this file's dir."""
+    return getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+
+
+TEMPLATE_DIR = os.path.join(_res_dir(), "templates")
 
 
 @dataclass

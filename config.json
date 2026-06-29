@@ -1,37 +1,40 @@
 {
   "mode": "background",
   "capture_backend": "wgc",
-
   "auto_resize": true,
-  "target_window": [1108, 623],
-
-  "skystone_budget": 30,
-
-  "buy_targets": ["covenant_bookmark", "mystic_medal"],
-
+  "target_window": [
+    1108,
+    623
+  ],
+  "skystone_budget": 3000,
+  "buy_targets": [
+    "covenant_bookmark",
+    "mystic_medal"
+  ],
   "match_threshold": 0.85,
-  "scales": [1.0],
+  "scales": [
+    1.0
+  ],
   "buy_green_dom": 20,
-
   "delays": {
     "after_click": 0.6,
     "after_buy": 1.2,
     "after_refresh": 1.5,
     "loop_idle": 0.3
   },
-
   "max_wait_refresh": 8.0,
   "max_consecutive_fails": 3,
   "abort_hotkey": "f12",
-
   "scroll": {
-    "point": [750, 350],
+    "point": [
+      750,
+      350
+    ],
     "step_notches": 5,
     "max_pages": 6,
     "list_region_x": 360,
     "change_threshold": 5.0
   },
-
   "_comment_mode": "background | hybrid | foreground  (set after running tools/probe.py)",
   "_comment_capture_backend": "wgc | printwindow"
 }

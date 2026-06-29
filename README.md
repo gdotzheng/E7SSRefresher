@@ -10,6 +10,21 @@ reading or packet manipulation.
 > ⚠️ Automating gameplay may violate Epic Seven's Terms of Service and could put your
 > account at risk. Use at your own discretion.
 
+## Standalone .exe (no Python needed)
+
+Build a single self-contained executable that **requests admin automatically** (UAC) and bakes in
+the templates:
+
+```
+build.bat
+```
+
+This produces **`dist\E7SSRefresher.exe`**. Double-click it (accept the UAC prompt) — no Python install,
+no terminal. On first run it creates an editable `config.json` next to the .exe; `dryrun.png` and any
+`debug_*.png` are written there too. Put the .exe in a normal folder (not `Program Files`).
+
+To re-create a template, you still need the Python tools (`py tools/snip.py`) — the .exe is for running.
+
 ## Easiest way: the control panel (no commands)
 
 1. One-time install of dependencies (double-click won't do this): open a terminal in this folder and run
