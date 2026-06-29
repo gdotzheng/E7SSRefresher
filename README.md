@@ -18,17 +18,15 @@ reading or packet manipulation.
    Epic Seven runs as administrator, so the panel will request elevation — **accept the UAC prompt**.
    (Without it, clicks to the game fail with "Access denied".)
 
-From the panel you can do everything without the command line:
+The panel is intentionally minimal:
 - **Detect Game** – confirms Epic Seven is found (runs automatically on open).
-- **Test Capture** – grabs one frame with the chosen backend and shows it in the preview.
-- **Snapshot for templates** + **Open templates folder** – save and crop your template images.
-- **Dry Run** – detect & annotate without clicking.
-- **Test Click** – fire one background click at the given x/y to check if background input works.
-- Edit **settings** (budget, mode, backend, buy targets) and **Save Settings**.
-- **▶ Start / ■ Stop** the refresher, with a live log, image preview, and a **Stats** panel
-  (refreshes done, skystones spent, items bought per type, elapsed time).
+- **Skystone budget** + **Save** – set how many skystones to spend, then save.
+- **Dry Run** – resize + detect templates without clicking (a quick sanity check; opens the result image).
+- **▶ Start / ■ Stop** the refresher, with a live **Stats** panel (refreshes, skystones spent,
+  Covenant/Mystic bought, elapsed) and a log.
 
-The sections below describe the same steps via the command line, if you prefer.
+Buy targets are fixed to **Covenant Bookmarks + Mystic Medals**. Other tuning (mode, capture backend,
+match threshold, scroll, etc.) lives in `config.json`. The sections below cover the command line, if you prefer.
 
 ## How it runs (background vs foreground)
 
