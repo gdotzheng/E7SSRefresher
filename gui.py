@@ -75,9 +75,11 @@ class Api:
         self._bot = None
         self._elapsed = "0m 00s"
         self._det = {"detected": False, "status": "Detecting…", "size": ""}
-        self._poll_n = 0
         R.log.addHandler(QueueLogHandler(self.log_q))
         R.log.setLevel(logging.INFO)
+        # Game detection scans every process (slow) — run it off the bridge thread so poll()
+        # stays instant and never freezes the UI.
+        threading.Thread(target=self._detect_loop, daemon=True).start()
 
     # ---------------------------------------------------------------- exposed
     def get_init(self):
@@ -97,8 +99,17 @@ class Api:
             self._det = {"detected": False, "status": "Epic Seven not found", "size": ""}
         return self._det
 
+    def _detect_loop(self):
+        while True:
+            try:
+                self._detect()
+            except Exception:
+                pass
+            time.sleep(2.0)
+
     def detect_game(self):
-        return self._detect()
+        # Return the cached result (kept fresh by the background loop) — never blocks the UI.
+        return self._det
 
     def save(self, budget):
         b = self._parse(budget)
@@ -155,9 +166,7 @@ class Api:
         return {"ok": True}
 
     def poll(self):
-        self._poll_n += 1
-        if self._poll_n % 5 == 1:   # refresh detection ~every 2s so the status self-heals
-            self._detect()
+        # Fast: just read cached detection + drain the log queue + read bot stats. No scanning.
         logs = []
         try:
             while True:

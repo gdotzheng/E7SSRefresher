@@ -70,6 +70,14 @@ def find_game_window(exe_name: str = EXE_NAME) -> GameWindow | None:
             return True
         l, t, r, b = win32gui.GetClientRect(hwnd)
         w, h = r - l, b - t
+        if (w <= 0 or h <= 0) and win32gui.IsIconic(hwnd):
+            # Minimized window reports a 0-size client rect — fall back to its restored
+            # size so we still detect Epic Seven (it's resized properly on Start).
+            try:
+                nl, nt, nr, nb = win32gui.GetWindowPlacement(hwnd)[4]
+                w, h = max(0, nr - nl), max(0, nb - nt)
+            except Exception:
+                pass
         if w > 0 and h > 0:
             candidates.append(GameWindow(hwnd=hwnd, width=w, height=h))
         return True
