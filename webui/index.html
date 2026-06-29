@@ -54,7 +54,7 @@
   }
 
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }  /* only the log scrolls, never the page */
   body {
     font-family: 'Segoe UI Variable Text','Segoe UI', system-ui, sans-serif;
     background: var(--bg-grad);
@@ -63,8 +63,8 @@
   }
   @keyframes ping { 0% { transform: scale(.55); opacity: .65; } 100% { transform: scale(2); opacity: 0; } }
 
-  .stage { min-height: 100vh; }
-  .card { width: 100%; min-height: 100vh; display: flex; flex-direction: column;
+  .stage { height: 100vh; }
+  .card { width: 100%; height: 100vh; display: flex; flex-direction: column;
     overflow: hidden; background: var(--card); }
 
   /* title bar */
@@ -82,7 +82,8 @@
   .winbtn:hover { background: var(--soft); }
   #close:hover { background: var(--red); color: #fff; }
 
-  .content { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
+  .content { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 16px;
+    flex: 1; min-height: 0; }
   .logsection { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   .seclabel { font-size: 10.5px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted-2);
     font-weight: 700; margin-bottom: 8px; }
@@ -148,7 +149,7 @@
   .logheader { display: flex; align-items: center; margin-bottom: 8px; }
   .clear { font-size: 11px; color: var(--muted-2); cursor: pointer; }
   .clear:hover { color: var(--text-2); }
-  .log { flex: 1; min-height: 120px; overflow-y: auto; background: var(--log-bg);
+  .log { flex: 1; min-height: 0; overflow-y: auto; background: var(--log-bg);
     border: 1px solid var(--hair); border-radius: 8px; padding: 10px 14px; }
   .logline { display: flex; gap: 10px; align-items: center; padding: 3.5px 0;
     font: 12px/1.5 ui-monospace,'Cascadia Code',monospace; }
