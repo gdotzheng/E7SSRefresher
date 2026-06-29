@@ -21,6 +21,7 @@
   },
 
   "max_wait_refresh": 8.0,
+  "max_consecutive_fails": 3,
   "abort_hotkey": "f12",
 
   "scroll": {

@@ -93,6 +93,7 @@ Press **F12** (configurable) or **Ctrl+C** to stop.
 | `scales` | extra match scales for minor resolution differences (e.g. `[1.0, 0.95, 1.05]`) |
 | `delays` | pacing between clicks/buys/refreshes |
 | `max_wait_refresh` | seconds to wait for the shop to reappear after a refresh |
+| `max_consecutive_fails` | how many failed cycles in a row (refresh miss / lost screen) before stopping; transient misses are retried, not fatal |
 | `scroll` | the shop list is scrolled top→bottom each buy pass (mouse-wheel) to see every item; `point` (where to wheel), `step_notches`, `max_pages`, `list_region_x`/`change_threshold` (bottom detection) |
 
 ## Files

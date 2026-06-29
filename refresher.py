@@ -234,26 +234,43 @@ class Bot:
         log.info("  bought %s", target)
         self.dismiss_dialog()  # close any follow-up dialog so the screen is clean
 
+    def _wait_for(self, name, timeout: float = 2.5, interval: float = 0.25):
+        """Poll for a template until it appears or timeout (dialogs animate in, so a single
+        grab can miss them)."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if _abort:
+                return None
+            m = self.find(name, self.grab())
+            if m:
+                return m
+            time.sleep(interval)
+        return None
+
     # ---- refresh ---------------------------------------------------------
-    def refresh(self) -> bool:
-        """Returns True if a refresh was performed."""
-        self.dismiss_dialog()  # clear any stray popup before acting
-        screen = self.grab()
-        btn = self.find("refresh_button", screen)
-        if not btn:
-            log.warning("Refresh button not found.")
-            self.save_debug(screen, "no_refresh")
-            return False
-        self.click_match(btn, self.d["after_click"])
-        screen = self.grab()
-        confirm = self.find("refresh_confirm", screen)
-        if not confirm:
-            log.warning("Refresh confirm dialog not found (out of skystones?).")
-            self.save_debug(screen, "no_refresh_confirm")
+    def refresh(self, tries: int = 3) -> bool:
+        """Click Refresh and confirm. Retries: after 500+ refreshes a single confirm-dialog
+        miss is almost always transient (slow animation / dropped click), so don't quit the
+        whole run on the first miss — poll for the dialog and retry a few times."""
+        for attempt in range(tries):
+            if _abort:
+                return False
+            self.dismiss_dialog()  # clear any stray popup before acting
+            btn = self.find("refresh_button", self.grab())
+            if not btn:
+                time.sleep(0.5)
+                continue
+            self.click_match(btn, self.d["after_click"])
+            confirm = self._wait_for("refresh_confirm", timeout=2.5)
+            if confirm:
+                self.click_match(confirm, self.d["after_refresh"])
+                return True
+            log.info("  refresh confirm not seen (attempt %d/%d), retrying", attempt + 1, tries)
             self.dismiss_dialog()
-            return False
-        self.click_match(confirm, self.d["after_refresh"])
-        return True
+            time.sleep(0.4)
+        log.warning("Refresh confirm dialog not found after %d tries (out of skystones?).", tries)
+        self.save_debug(self.grab(), "no_refresh_confirm")
+        return False
 
     def wait_for_shop(self) -> bool:
         deadline = time.time() + self.cfg["max_wait_refresh"]
@@ -302,6 +319,8 @@ def run(bot: "Bot"):
         return
 
     log.info("Starting. Skystone budget for refreshes: %d", budget)
+    fails = 0
+    max_fails = bot.cfg.get("max_consecutive_fails", 3)
     while not _abort:
         cost = REFRESH_COST
         if st["skystones_spent"] + cost > budget:
@@ -310,29 +329,41 @@ def run(bot: "Bot"):
             break
 
         bot.dismiss_dialog()  # clear any stray popup (leftover or manual) before acting
-        screen = bot.grab()
-        if not V.on_secret_shop_screen(screen, bot.th):
-            log.warning("Lost the Secret Shop screen — pausing.")
-            bot.save_debug(screen, "lost_screen")
-            break
+        if not V.on_secret_shop_screen(bot.grab(), bot.th):
+            fails += 1
+            log.warning("Not on the Secret Shop screen (%d/%d).", fails, max_fails)
+            bot.save_debug(bot.grab(), "lost_screen")
+            if fails >= max_fails:
+                log.info("Stopping: lost the shop screen %d times in a row.", max_fails)
+                break
+            bot.dismiss_dialog()
+            time.sleep(1.0)
+            continue
 
         bot.buy_targets()
         if _abort:
             break
 
         if not bot.refresh():
-            log.info("Stopping: could not refresh.")
-            break
+            fails += 1
+            log.warning("Refresh failed (%d/%d) — recovering.", fails, max_fails)
+            if fails >= max_fails:
+                log.info("Stopping: refresh failed %d times in a row.", max_fails)
+                break
+            bot.dismiss_dialog()
+            time.sleep(1.0)
+            continue
 
+        fails = 0  # a good refresh clears the streak
         st["skystones_spent"] += cost
         st["refreshes"] += 1
         log.info("Refresh #%d done. Skystones spent: %d / %d",
                  st["refreshes"], st["skystones_spent"], budget)
 
         if not bot.wait_for_shop():
-            log.warning("Shop did not reappear in time — pausing.")
+            log.warning("Shop did not reappear in time — recovering.")
             bot.save_debug(bot.grab(), "no_reappear")
-            break
+            bot.dismiss_dialog()
 
     bought = ", ".join(f"{n}:{c}" for n, c in st["bought"].items()) or "none"
     log.info("Finished. %d refreshes, ~%d skystones spent. Bought: %s",
