@@ -1,7 +1,7 @@
 {
   "mode": "background",
   "capture_backend": "wgc",
-  "dark_mode": false,
+  "dark_mode": true,
   "auto_resize": true,
   "target_window": [
     1108,

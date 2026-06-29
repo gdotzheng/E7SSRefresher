@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E7SSRefresher</title>
+<style>
+  :root {
+    --accent: #2fbb74;
+    --accent-soft: rgba(47,187,116,0.18);
+    --bg-grad: radial-gradient(120% 120% at 20% 0%, #2a313d 0%, #1b1f27 55%, #15181e 100%);
+    --card: #181b20;
+    --card-border: rgba(255,255,255,0.08);
+    --bar: #121317;
+    --input-bg: #0e1014;
+    --log-bg: #0c0e11;
+    --text: #e7e9ee;
+    --text-2: #cbd0d7;
+    --muted: #8a9098;
+    --muted-2: #6e747d;
+    --hair: rgba(255,255,255,0.06);
+    --hair-2: rgba(255,255,255,0.10);
+    --soft: rgba(255,255,255,0.04);
+    --stat-bg: rgba(255,255,255,0.022);
+    --stat-border: rgba(255,255,255,0.06);
+    --ghost-bg: rgba(255,255,255,0.04);
+    --ghost-border: rgba(255,255,255,0.08);
+    --ghost-text: #727983;
+    --info: #aeb4bd;
+    --red: #e5544e;
+    --refresh: #5a8dd6;
+    --warn: #d8a13a;
+  }
+  body.light {
+    --bg-grad: radial-gradient(120% 120% at 20% 0%, #ffffff 0%, #eef1f5 55%, #e3e8ef 100%);
+    --card: #ffffff;
+    --card-border: rgba(0,0,0,0.10);
+    --bar: #f1f3f7;
+    --input-bg: #f4f6f9;
+    --log-bg: #f7f9fc;
+    --text: #1a1d22;
+    --text-2: #2c313a;
+    --muted: #5c636d;
+    --muted-2: #828a95;
+    --hair: rgba(0,0,0,0.06);
+    --hair-2: rgba(0,0,0,0.12);
+    --soft: rgba(0,0,0,0.04);
+    --stat-bg: rgba(0,0,0,0.025);
+    --stat-border: rgba(0,0,0,0.08);
+    --ghost-bg: rgba(0,0,0,0.04);
+    --ghost-border: rgba(0,0,0,0.10);
+    --ghost-text: #6a7180;
+    --info: #5a626d;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: 'Segoe UI Variable Text','Segoe UI', system-ui, sans-serif;
+    background: var(--bg-grad);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  @keyframes ping { 0% { transform: scale(.55); opacity: .65; } 100% { transform: scale(2); opacity: 0; } }
+
+  .stage { min-height: 100vh; }
+  .card { width: 100%; overflow: hidden; background: var(--card); }
+
+  /* title bar */
+  .titlebar { height: 38px; display: flex; align-items: center; padding: 0 4px 0 12px;
+    background: var(--bar); border-bottom: 1px solid var(--hair); }
+  .dragzone { flex: 1; height: 100%; display: flex; align-items: center; gap: 10px; }
+  .logo { width: 18px; height: 18px; border-radius: 5px; display: flex; align-items: center;
+    justify-content: center; font-size: 12px; color: #0c1410; font-weight: 700; background: var(--accent); }
+  .title { font-size: 12px; color: var(--text-2); font-weight: 600; }
+  .sub { font-size: 12px; color: var(--muted-2); }
+  .spacer { flex: 1; }
+  .winbtns { display: flex; gap: 2px; }
+  .winbtn { width: 38px; height: 30px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 13px; border-radius: 5px; cursor: pointer; }
+  .winbtn:hover { background: var(--soft); }
+  #close:hover { background: var(--red); color: #fff; }
+
+  .content { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 16px; }
+  .seclabel { font-size: 10.5px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted-2);
+    font-weight: 700; margin-bottom: 8px; }
+
+  /* status */
+  .statusrow { display: flex; align-items: center; gap: 12px; background: var(--stat-bg);
+    border: 1px solid var(--hair); border-radius: 9px; padding: 12px 14px; }
+  .livedot { position: relative; display: inline-flex; width: 9px; height: 9px; }
+  .livedot .ping { position: absolute; inset: -5px; border-radius: 50%; background: var(--accent-soft);
+    animation: ping 2.2s ease-out infinite; }
+  .livedot .core { position: absolute; inset: 0; border-radius: 50%; background: var(--accent); }
+  .livedot.off .ping { animation: none; background: transparent; }
+  .livedot.off .core { background: var(--muted-2); }
+  .statustext { font-size: 13.5px; color: var(--text); font-weight: 500; }
+  .badge { font: 500 11.5px/1 ui-monospace,'Cascadia Code',monospace; color: var(--muted);
+    background: var(--soft); border: 1px solid var(--hair-2); padding: 4px 8px; border-radius: 6px; }
+  .badge:empty { display: none; }
+  .darktoggle { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--muted); }
+  .switch { width: 38px; height: 21px; border-radius: 11px; background: var(--hair-2); position: relative;
+    cursor: pointer; transition: background .15s; }
+  .switch.on { background: var(--accent); }
+  .switch .knob { position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: left .15s; }
+  .switch.on .knob { left: 19px; }
+
+  .btn-soft { height: 38px; display: flex; align-items: center; font-size: 12.5px; color: var(--text-2);
+    font-weight: 500; background: var(--soft); border: 1px solid var(--hair-2); padding: 0 14px;
+    border-radius: 7px; cursor: pointer; }
+  .btn-soft:hover { border-color: var(--accent); color: var(--text); }
+
+  /* config */
+  .configrow { display: flex; align-items: flex-end; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .fieldlabel { font-size: 11.5px; color: var(--muted); font-weight: 500; }
+  .inputwrap { display: flex; align-items: center; height: 38px; width: 200px; background: var(--input-bg);
+    border: 1px solid var(--hair-2); border-radius: 7px; padding: 0 12px; }
+  .inputwrap:focus-within { border-color: var(--accent); }
+  .inputwrap input { flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+    font: 600 15px ui-monospace,'Cascadia Code',monospace; color: var(--text); user-select: text; }
+  .inputwrap .suffix { margin-left: 8px; font-size: 11px; color: var(--muted-2); }
+
+  .runrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .btn.run { height: 46px; border-radius: 8px; font-size: 14.5px; font-weight: 600; display: flex;
+    align-items: center; justify-content: center; gap: 4px; letter-spacing: .2px;
+    border: 1px solid transparent; cursor: pointer; }
+  .btn.filled-accent { background: var(--accent); color: #0b130d;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 6px 18px rgba(47,187,116,.30); }
+  .btn.filled-red { background: var(--red); color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 6px 18px rgba(229,84,78,.30); }
+  .btn.ghost { background: var(--ghost-bg); color: var(--ghost-text); border: 1px solid var(--ghost-border); }
+  .btn.run.disabled { cursor: default; opacity: .9; }
+
+  /* stats */
+  .statsgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .statcard { background: var(--stat-bg); border: 1px solid var(--stat-border); border-radius: 8px;
+    padding: 11px 13px; display: flex; flex-direction: column; gap: 6px; }
+  .statcard .k { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2);
+    font-weight: 600; }
+  .statcard .v { font: 600 21px/1 ui-monospace,'Cascadia Code',monospace; color: var(--text); }
+  .statcard .v.hi { color: var(--accent); }
+
+  /* log */
+  .logheader { display: flex; align-items: center; margin-bottom: 8px; }
+  .clear { font-size: 11px; color: var(--muted-2); cursor: pointer; }
+  .clear:hover { color: var(--text-2); }
+  .log { height: 152px; overflow-y: auto; background: var(--log-bg); border: 1px solid var(--hair);
+    border-radius: 8px; padding: 10px 14px; }
+  .logline { display: flex; gap: 10px; align-items: center; padding: 3.5px 0;
+    font: 12px/1.5 ui-monospace,'Cascadia Code',monospace; }
+  .logline .t { color: var(--muted-2); flex: none; }
+  .logline .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .logline .m { color: var(--info); word-break: break-word; }
+  .log::-webkit-scrollbar { width: 8px; }
+  .log::-webkit-scrollbar-thumb { background: var(--hair-2); border-radius: 4px; }
+
+  /* footer */
+  .footer { display: flex; align-items: center; justify-content: space-between; padding: 8px 18px;
+    background: var(--bar); border-top: 1px solid var(--hair); font-size: 11.5px; color: var(--muted-2); }
+  .fstatus { display: flex; align-items: center; gap: 8px; }
+  .fdot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-2); }
+  .footer.running .fdot { background: var(--accent); }
+  .footer.running #footerLabel { color: var(--accent); font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card">
+      <div class="titlebar">
+        <div class="dragzone pywebview-drag-region">
+          <div class="logo">&#8635;</div>
+          <span class="title">Background Secret Shop Refresher</span>
+          <span class="sub">&mdash; Epic Seven</span>
+        </div>
+        <div class="winbtns">
+          <div class="winbtn" id="minBtn" title="Minimize">&#8211;</div>
+          <div class="winbtn" id="closeBtn" title="Close">&#10005;</div>
+        </div>
+      </div>
+
+      <div class="content">
+        <section>
+          <div class="seclabel">Status</div>
+          <div class="statusrow">
+            <span class="livedot off" id="liveDot"><span class="ping"></span><span class="core"></span></span>
+            <span class="statustext" id="statusText">Detecting&hellip;</span>
+            <span class="badge" id="sizeBadge"></span>
+            <div class="spacer"></div>
+            <div class="btn-soft" id="detectBtn">Detect game</div>
+            <div class="darktoggle">
+              <span>Dark</span>
+              <div class="switch on" id="darkSwitch"><div class="knob"></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="seclabel">Configuration</div>
+          <div class="configrow">
+            <div class="field">
+              <span class="fieldlabel">Skystone budget</span>
+              <div class="inputwrap">
+                <input id="budget" inputmode="numeric" value="3,000" spellcheck="false">
+              </div>
+            </div>
+            <div class="btn-soft" id="saveBtn">Save</div>
+          </div>
+          <div class="runrow">
+            <div class="btn run filled-accent" id="startBtn">&#9654;&ensp;Start</div>
+            <div class="btn run ghost disabled" id="stopBtn">&#9632;&ensp;Stop</div>
+          </div>
+        </section>
+
+        <section>
+          <div class="seclabel">Stats</div>
+          <div class="statsgrid" id="statsGrid"></div>
+        </section>
+
+        <section>
+          <div class="logheader">
+            <span class="seclabel" style="margin:0;">Activity log</span>
+            <div class="spacer"></div>
+            <span class="clear" id="clearLog">Clear</span>
+          </div>
+          <div class="log" id="log"></div>
+        </section>
+      </div>
+
+      <div class="footer" id="footer">
+        <div class="fstatus"><span class="fdot"></span><span id="footerLabel">Idle</span></div>
+        <span class="ver">E7SSRefresher &middot; v2.0</span>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const STAT_DEFS = [
+    { key: "refreshes",   label: "Refreshes" },
+    { key: "spent",       label: "Skystones spent", hi: true },
+    { key: "budget_left", label: "Budget left" },
+    { key: "covenant",    label: "Covenant bought" },
+    { key: "mystic",      label: "Mystic bought" },
+    { key: "elapsed",     label: "Elapsed" },
+  ];
+  const LOG_COLOR = { info: "var(--info)", buy: "var(--accent)", refresh: "var(--refresh)", warn: "var(--warn)" };
+  const LOG_DOT   = { info: "#7d8590", buy: "var(--accent)", refresh: "var(--refresh)", warn: "var(--warn)" };
+
+  const $ = id => document.getElementById(id);
+  const api = () => { const a = window.pywebview && window.pywebview.api; return (a && a.poll) ? a : null; };
+  const fmtNum = n => Number(n).toLocaleString("en-US");
+  let running = false;
+  let inited = false;
+
+  function renderStats(s) {
+    const grid = $("statsGrid");
+    grid.innerHTML = "";
+    for (const d of STAT_DEFS) {
+      let val = s[d.key];
+      if (typeof val === "number") val = fmtNum(val);
+      grid.insertAdjacentHTML("beforeend",
+        `<div class="statcard"><span class="k">${d.label}</span>` +
+        `<span class="v${d.hi ? " hi" : ""}">${val ?? "0"}</span></div>`);
+    }
+  }
+
+  function appendLog(entries) {
+    if (!entries || !entries.length) return;
+    const box = $("log");
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 24;
+    for (const e of entries) {
+      const lvl = e.lvl || "info";
+      box.insertAdjacentHTML("beforeend",
+        `<div class="logline"><span class="t">${e.t}</span>` +
+        `<span class="dot" style="background:${LOG_DOT[lvl]}"></span>` +
+        `<span class="m" style="color:${LOG_COLOR[lvl]}">${escapeHtml(e.m)}</span></div>`);
+    }
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  }
+
+  function setRunning(r) {
+    running = r;
+    const start = $("startBtn"), stop = $("stopBtn"), footer = $("footer");
+    start.className = "btn run " + (r ? "ghost disabled" : "filled-accent");
+    stop.className  = "btn run " + (r ? "filled-red" : "ghost disabled");
+    footer.classList.toggle("running", r);
+    $("footerLabel").textContent = r ? "Running" : "Idle";
+  }
+
+  function setStatus(detected, text, size) {
+    $("liveDot").classList.toggle("off", !detected);
+    $("statusText").textContent = text || "";
+    $("sizeBadge").textContent = size || "";
+  }
+
+  function setDark(dark) {
+    document.body.classList.toggle("light", !dark);
+    $("darkSwitch").classList.toggle("on", dark);
+  }
+
+  // ---- wire up controls
+  function parseBudget() {
+    const v = parseInt($("budget").value.replace(/[^0-9]/g, ""), 10);
+    return isNaN(v) ? 0 : v;
+  }
+  function fmtBudget() { $("budget").value = fmtNum(parseBudget()); }
+
+  $("budget").addEventListener("blur", fmtBudget);
+  $("detectBtn").onclick = async () => { const a = api(); if (a) { const r = await a.detect_game(); setStatus(r.detected, r.status, r.size); } };
+  $("saveBtn").onclick   = () => { const a = api(); fmtBudget(); if (a) a.save(parseBudget()); };
+  $("startBtn").onclick  = () => { if (running) return; const a = api(); fmtBudget(); if (a) a.start(parseBudget()); setRunning(true); };
+  $("stopBtn").onclick   = () => { if (!running) return; const a = api(); if (a) a.stop(); };
+  $("darkSwitch").onclick = () => { const dark = !document.body.classList.contains("light") ? false : true; setDark(dark); const a = api(); if (a) a.set_dark(dark); };
+  $("clearLog").onclick  = () => { $("log").innerHTML = ""; };
+  $("minBtn").onclick    = () => { const a = api(); if (a) a.minimize(); };
+  $("closeBtn").onclick  = () => { const a = api(); if (a) a.close(); };
+
+  // ---- poll loop (bridge present)
+  async function poll() {
+    const a = api(); if (!a) return;
+    try {
+      const r = await a.poll();
+      if (r.running !== running) setRunning(r.running);
+      renderStats(r.stats);
+      appendLog(r.log);
+    } catch (e) { /* ignore transient */ }
+  }
+
+  async function init() {
+    if (inited) return;
+    const a = api();
+    if (!a) { setTimeout(init, 150); return; }  // bridge not ready yet — keep polling for it
+    inited = true;
+    const r = await a.get_init();
+    $("budget").value = fmtNum(r.budget);
+    setDark(r.dark);
+    const d = await a.detect_game();
+    setStatus(d.detected, d.status, d.size);
+    const p = await a.poll();
+    setRunning(p.running);
+    renderStats(p.stats);
+    appendLog(p.log);
+    setInterval(poll, 400);
+  }
+
+  // Don't rely on the pywebviewready event alone (it can be missed); poll until the bridge exists.
+  window.addEventListener("pywebviewready", init);
+  window.addEventListener("DOMContentLoaded", init);
+  init();
+</script>
+</body>
+</html>

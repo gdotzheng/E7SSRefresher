@@ -6,8 +6,10 @@ cd /d "%~dp0"
 py -m pip install --quiet pyinstaller
 py -m PyInstaller --noconfirm --onefile --windowed --uac-admin --name E7SSRefresher ^
   --add-data "templates;templates" ^
+  --add-data "webui;webui" ^
   --add-data "config.json;." ^
   --collect-all windows_capture ^
+  --collect-all webview ^
   gui.py
 echo.
 echo Done. EXE at: dist\E7SSRefresher.exe

@@ -4,3 +4,5 @@ pywin32>=306
 psutil>=5.9
 windows-capture>=2.0.0
 keyboard>=0.13.5
+pywebview>=5.0
+# pywebview uses Edge WebView2 on Windows (built into Win11) via pythonnet (pulled in automatically).

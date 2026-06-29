@@ -38,13 +38,15 @@ Release with it attached (needs the `gh` CLI, authenticated). Downloads:
    Epic Seven runs as administrator, so the panel will request elevation — **accept the UAC prompt**.
    (Without it, clicks to the game fail with "Access denied".)
 
-The panel is intentionally minimal:
-- **Detect Game** – confirms Epic Seven is found (runs automatically on open).
+The panel (a pywebview/HTML window — `webui/index.html` rendered in Edge WebView2, built into Win11):
+- **Detect game** – confirms Epic Seven is found (runs automatically on open).
 - **Skystone budget** + **Save** – set how many skystones to spend, then save.
-- **Dry Run** – resize + detect templates without clicking (a quick sanity check; opens the result image).
-- **▶ Start / ■ Stop** the refresher, with a live **Stats** panel (refreshes, skystones spent,
-  Covenant/Mystic bought, elapsed) and a log.
+- **▶ Start / ■ Stop** the refresher, with a live **Stats** grid (refreshes, skystones spent,
+  budget left, Covenant/Mystic bought, elapsed) and an Activity log.
 - **Dark mode** toggle (top-right) — remembered across launches.
+
+The bot runs in a background thread, so it keeps going even when the window isn't focused; the UI
+catches up when you look at it.
 
 Buy targets are fixed to **Covenant Bookmarks + Mystic Medals**. Other tuning (mode, capture backend,
 match threshold, scroll, etc.) lives in `config.json`. The sections below cover the command line, if you prefer.

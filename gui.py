@@ -1,12 +1,9 @@
-"""E7SSRefresher control panel — a small GUI so you never need the command line.
+"""E7SSRefresher control panel — a pywebview (HTML/CSS) front-end over the bot backend.
+
+The window renders webui/index.html in Edge WebView2; this module is just the Python<->JS
+bridge. The bot logic (window.py, vision.py, refresher.py) is unchanged.
 
 Run by double-clicking "Start E7SSRefresher.bat" (or: py gui.py).
-
-  Detect Game   -> find the EpicSeven.exe window (runs on open)
-  Dry Run       -> resize + detect templates without clicking (sanity check)
-  Start / Stop  -> run / stop the refresher loop
-
-Buy targets are fixed to Covenant Bookmarks + Mystic Medals. Other tuning lives in config.json.
 """
 
 from __future__ import annotations
@@ -14,43 +11,26 @@ from __future__ import annotations
 import os
 import sys
 import json
+import time
 import queue
 import ctypes
 import logging
 import threading
-import time
-
-import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-import window as W       # noqa: E402
-import refresher as R    # noqa: E402
+import webview          # noqa: E402
+import window as W      # noqa: E402
+import refresher as R   # noqa: E402
 
 
-def _ext_dir() -> str:
-    """Writable dir: %APPDATA%\\E7SSRefresher when frozen, else this file's dir."""
-    if getattr(sys, "frozen", False):
-        base = os.environ.get("APPDATA") or os.path.expanduser("~")
-        d = os.path.join(base, "E7SSRefresher")
-        os.makedirs(d, exist_ok=True)
-        return d
-    return HERE
+def _res_dir() -> str:
+    """Read-only bundled resources (the PyInstaller bundle when frozen, else this dir)."""
+    return getattr(sys, "_MEIPASS", HERE)
 
 
-DRYRUN_PATH = os.path.join(_ext_dir(), "dryrun.png")
-BUY_TARGETS = ["covenant_bookmark", "mystic_medal"]
-
-PALETTES = {
-    "light": {"bg": "#f0f0f0", "fg": "#1a1a1a", "muted": "#555555", "entry": "#ffffff",
-              "btn": "#e1e1e1", "btn_active": "#cfcfcf", "text_bg": "#ffffff",
-              "text_fg": "#1a1a1a"},
-    "dark": {"bg": "#1e1e1e", "fg": "#e6e6e6", "muted": "#9a9a9a", "entry": "#2d2d2d",
-             "btn": "#3a3a3a", "btn_active": "#4a4a4a", "text_bg": "#141414",
-             "text_fg": "#d4d4d4"},
-}
+WEBUI = os.path.join(_res_dir(), "webui", "index.html")
 
 
 def is_admin() -> bool:
@@ -61,296 +41,84 @@ def is_admin() -> bool:
 
 
 class QueueLogHandler(logging.Handler):
-    def __init__(self, q: "queue.Queue[str]"):
+    """Turn log records into structured {t, lvl, m} entries the UI can colour."""
+
+    def __init__(self, q: "queue.Queue[dict]"):
         super().__init__()
         self.q = q
 
     def emit(self, record):
-        self.q.put(self.format(record))
+        try:
+            msg = record.getMessage()
+            low = msg.lower()
+            if record.levelno >= logging.WARNING:
+                lvl = "warn"
+            elif "bought" in low or "would buy" in low:
+                lvl = "buy"
+            elif "refresh #" in low or low.startswith("refresh"):
+                lvl = "refresh"
+            else:
+                lvl = "info"
+            self.q.put({"t": time.strftime("%H:%M:%S"), "lvl": lvl, "m": msg})
+        except Exception:
+            pass
 
 
-class App:
-    def __init__(self, root: tk.Tk):
-        self.root = root
-        root.title("E7SSRefresher - Background Secret Shop Refresher")
-        root.geometry("640x560")
-        root.minsize(560, 480)
+class Api:
+    """Methods here are callable from JS as window.pywebview.api.<name>(...)."""
 
+    def __init__(self):
+        self.window = None
         self.cfg = R.load_config()
-        self.log_q: "queue.Queue[str]" = queue.Queue()
+        self.log_q: "queue.Queue[dict]" = queue.Queue()
         self._running = False
-        self._run_thread: threading.Thread | None = None
-        self._action_lock = threading.Lock()
-        self._action_buttons: list[ttk.Button] = []
-        self._bot = None  # set while a run is active, for live stats
-        self.dark = bool(self.cfg.get("dark_mode", False))
-
-        self._build_ui()
-        self._apply_theme()
-        self._wire_logging()
-        self.root.after(120, self._poll_log)
-        self.detect_game()
-
-    # ----------------------------------------------------------------- layout
-    def _build_ui(self):
-        main = ttk.Frame(self.root, padding=10)
-        main.pack(fill="both", expand=True)
-
-        # --- status / header
-        header = ttk.Frame(main)
-        header.pack(fill="x")
-        ttk.Label(header, text="Status", font=("", 10, "bold")).pack(side="left")
-        self.dark_var = tk.BooleanVar(value=self.dark)
-        ttk.Checkbutton(header, text="Dark mode", variable=self.dark_var,
-                        command=self._toggle_theme).pack(side="right")
-
-        top = ttk.Frame(main)
-        top.pack(fill="x")
-        self.status_var = tk.StringVar(value="…")
-        self.status_label = ttk.Label(top, textvariable=self.status_var, foreground="#555",
-                                      wraplength=420, justify="left")
-        self.status_label.pack(side="left", anchor="w")
-        b = ttk.Button(top, text="Detect Game", command=self.detect_game)
-        b.pack(side="right")
-        self._action_buttons.append(b)
-
-        ttk.Separator(main).pack(fill="x", pady=8)
-
-        # --- controls
-        ctrl = ttk.Frame(main)
-        ctrl.pack(fill="x")
-        ttk.Label(ctrl, text="Skystone budget").pack(side="left")
-        self.budget_var = tk.StringVar(value=str(self.cfg.get("skystone_budget", 30)))
-        ttk.Entry(ctrl, textvariable=self.budget_var, width=10).pack(side="left", padx=(6, 6))
-        save_btn = ttk.Button(ctrl, text="Save", command=self.save_config)
-        save_btn.pack(side="left")
-        self._action_buttons.append(save_btn)
-        dry_btn = ttk.Button(ctrl, text="Dry Run", command=self.dry_run)
-        dry_btn.pack(side="right")
-        self._action_buttons.append(dry_btn)
-
-        runrow = ttk.Frame(main)
-        runrow.pack(fill="x", pady=(8, 0))
-        self.start_btn = ttk.Button(runrow, text="▶ Start", command=self.start,
-                                    style="Start.TButton")
-        self.start_btn.pack(side="left", expand=True, fill="x", padx=(0, 2))
-        self._action_buttons.append(self.start_btn)
-        self.stop_btn = ttk.Button(runrow, text="■ Stop", command=self.stop, state="disabled",
-                                   style="Stop.TButton")
-        self.stop_btn.pack(side="left", expand=True, fill="x", padx=(2, 0))
-
-        ttk.Separator(main).pack(fill="x", pady=8)
-
-        # --- stats
-        stats = ttk.LabelFrame(main, text="Stats", padding=8)
-        stats.pack(fill="x")
-        rows = [
-            ("refreshes", "Refreshes"),
-            ("skystones", "Skystones spent"),
-            ("covenant_bookmark", "Covenant bought"),
-            ("mystic_medal", "Mystic bought"),
-            ("elapsed", "Elapsed"),
-        ]
-        self.stat_vars = {k: tk.StringVar(value="0") for k, _ in rows}
-        self.stat_vars["elapsed"].set("0m 00s")
-        for i, (key, label) in enumerate(rows):
-            col = (i % 2) * 2
-            ttk.Label(stats, text=label + ":").grid(row=i // 2, column=col, sticky="w",
-                                                    padx=(0, 6), pady=2)
-            ttk.Label(stats, textvariable=self.stat_vars[key],
-                      font=("", 10, "bold")).grid(row=i // 2, column=col + 1, sticky="w",
-                                                  padx=(0, 24), pady=2)
-
-        # --- log
-        ttk.Label(main, text="Log").pack(anchor="w", pady=(8, 0))
-        self.txt = scrolledtext.ScrolledText(main, height=12, state="disabled",
-                                             font=("Consolas", 9), wrap="word")
-        self.txt.pack(fill="both", expand=True)
-
-    # ----------------------------------------------------------------- logging
-    def _wire_logging(self):
-        h = QueueLogHandler(self.log_q)
-        h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%H:%M:%S"))
-        R.log.addHandler(h)
+        self._bot = None
+        self._elapsed = "0m 00s"
+        R.log.addHandler(QueueLogHandler(self.log_q))
         R.log.setLevel(logging.INFO)
 
-    def _poll_log(self):
-        try:
-            while True:
-                msg = self.log_q.get_nowait()
-                self.txt.configure(state="normal")
-                self.txt.insert("end", msg + "\n")
-                self.txt.see("end")
-                self.txt.configure(state="disabled")
-        except queue.Empty:
-            pass
-        self._update_stats()
-        self.root.after(120, self._poll_log)
+    # ---------------------------------------------------------------- exposed
+    def get_init(self):
+        return {"budget": int(self.cfg.get("skystone_budget", 3000)),
+                "dark": bool(self.cfg.get("dark_mode", True))}
 
-    def _update_stats(self, force: bool = False):
-        b = self._bot
-        if b is None or (not self._running and not force):
-            return
-        st = b.stats
-        self.stat_vars["refreshes"].set(str(st["refreshes"]))
-        self.stat_vars["skystones"].set(str(st["skystones_spent"]))
-        self.stat_vars["covenant_bookmark"].set(str(st["bought"].get("covenant_bookmark", 0)))
-        self.stat_vars["mystic_medal"].set(str(st["bought"].get("mystic_medal", 0)))
-        if b.started_at:
-            el = int(time.time() - b.started_at)
-            self.stat_vars["elapsed"].set(f"{el // 60}m {el % 60:02d}s")
-
-    def _reset_stats(self):
-        for k in self.stat_vars:
-            self.stat_vars[k].set("0")
-        self.stat_vars["elapsed"].set("0m 00s")
-
-    def _ui(self, fn):
-        self.root.after(0, fn)
-
-    # ----------------------------------------------------------------- helpers
-    def _busy(self, fn):
-        """Run an action in a worker thread, one at a time, logging any exception."""
-        def runner():
-            if not self._action_lock.acquire(blocking=False):
-                R.log.info("Busy — wait for the current action to finish.")
-                return
-            self._ui(lambda: self._set_actions_enabled(False))
-            try:
-                fn()
-            except Exception:
-                import traceback
-                R.log.error("Action failed:\n%s", traceback.format_exc())
-            finally:
-                self._action_lock.release()
-                self._ui(lambda: self._set_actions_enabled(True))
-        threading.Thread(target=runner, daemon=True).start()
-
-    def _set_actions_enabled(self, enabled: bool):
-        state = "normal" if enabled else "disabled"
-        for b in self._action_buttons:
-            try:
-                b.configure(state=state)
-            except Exception:
-                pass
-
-    # ----------------------------------------------------------------- theming
-    def _apply_theme(self):
-        p = PALETTES["dark" if self.dark else "light"]
-        self.root.configure(bg=p["bg"])
-        s = ttk.Style()
-        s.theme_use("clam")  # clam is fully colour-customisable (vista/native is not)
-        s.configure(".", background=p["bg"], foreground=p["fg"])
-        s.configure("TFrame", background=p["bg"])
-        s.configure("TLabel", background=p["bg"], foreground=p["fg"])
-        s.configure("TLabelframe", background=p["bg"], bordercolor=p["muted"])
-        s.configure("TLabelframe.Label", background=p["bg"], foreground=p["fg"])
-        s.configure("TCheckbutton", background=p["bg"], foreground=p["fg"])
-        s.map("TCheckbutton", background=[("active", p["bg"])])
-        s.configure("TEntry", fieldbackground=p["entry"], foreground=p["fg"],
-                    insertcolor=p["fg"], bordercolor=p["muted"])
-        s.configure("TButton", background=p["btn"], foreground=p["fg"], bordercolor=p["muted"])
-        s.map("TButton",
-              background=[("active", p["btn_active"]), ("disabled", p["bg"])],
-              foreground=[("disabled", p["muted"])])
-        s.configure("TSeparator", background=p["muted"])
-        # coloured run buttons (green Start, red Stop); greyed when disabled
-        s.configure("Start.TButton", background="#2e7d32", foreground="#ffffff")
-        s.map("Start.TButton",
-              background=[("active", "#388e3c"), ("disabled", p["btn"])],
-              foreground=[("disabled", p["muted"])])
-        s.configure("Stop.TButton", background="#c62828", foreground="#ffffff")
-        s.map("Stop.TButton",
-              background=[("active", "#d32f2f"), ("disabled", p["btn"])],
-              foreground=[("disabled", p["muted"])])
-        self.status_label.configure(foreground=p["muted"])
-        self.txt.configure(bg=p["text_bg"], fg=p["text_fg"], insertbackground=p["fg"])
-
-    def _toggle_theme(self):
-        self.dark = bool(self.dark_var.get())
-        self._apply_theme()
-        # persist just the flag, without disturbing the budget entry
-        try:
-            cfg = R.load_config()
-            cfg["dark_mode"] = self.dark
-            with open(R.CONFIG_PATH, "w", encoding="utf-8") as f:
-                json.dump(cfg, f, indent=2)
-            self.cfg["dark_mode"] = self.dark
-        except Exception as e:
-            R.log.warning("Could not save theme preference: %s", e)
-
-    # ----------------------------------------------------------------- config
-    def collect_config(self) -> dict:
-        cfg = dict(self.cfg)  # keep mode/backend/threshold/etc. from config.json
-        try:
-            cfg["skystone_budget"] = int(self.budget_var.get())
-        except ValueError:
-            messagebox.showerror("Invalid input", "Skystone budget must be a whole number.")
-            raise
-        cfg["buy_targets"] = list(BUY_TARGETS)
-        return cfg
-
-    def save_config(self):
-        try:
-            cfg = self.collect_config()
-        except ValueError:
-            return
-        self.cfg = cfg
-        with open(R.CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2)
-        R.log.info("Settings saved to config.json")
-
-    # ----------------------------------------------------------------- actions
     def detect_game(self):
         gw = W.find_game_window()
-        if gw is None:
-            self.status_var.set("Epic Seven NOT found.\nLaunch the game, then Detect again.")
-        else:
-            self.status_var.set(f"Found '{W.window_title(gw.hwnd)}'  ({gw.width}x{gw.height})")
-        return gw
+        if gw:
+            return {"detected": True, "status": "Epic Seven detected",
+                    "size": f"{gw.width} × {gw.height}"}
+        return {"detected": False, "status": "Epic Seven not found", "size": ""}
 
-    def dry_run(self):
-        def work():
-            try:
-                cfg = self.collect_config()
-            except ValueError:
-                return
-            gw = W.find_game_window()
-            if gw is None:
-                R.log.error("Game not found.")
-                return
-            try:
-                bot = R.Bot(cfg, gw)
-            except Exception as e:
-                R.log.error("Could not start capture: %s", e)
-                return
-            try:
-                R.dry_run(bot)
-            finally:
-                bot.close()
-            try:
-                os.startfile(DRYRUN_PATH)  # open the annotated result in the default viewer
-            except Exception:
-                pass
-        self._busy(work)
+    def save(self, budget):
+        b = self._parse(budget)
+        if b is None:
+            R.log.warning("Invalid budget.")
+            return {"ok": False}
+        self.cfg["skystone_budget"] = b
+        self._write_cfg()
+        R.log.info("Settings saved (budget %d).", b)
+        return {"ok": True}
 
-    # ----------------------------------------------------------------- run loop
-    def start(self):
+    def set_dark(self, dark):
+        self.cfg["dark_mode"] = bool(dark)
+        self._write_cfg()
+        return {"ok": True}
+
+    def start(self, budget):
         if self._running:
-            return
-        try:
-            cfg = self.collect_config()
-        except ValueError:
-            return
+            return {"ok": False}
+        b = self._parse(budget)
+        if b is None:
+            R.log.error("Invalid budget.")
+            return {"ok": False}
         gw = W.find_game_window()
         if gw is None:
             R.log.error("Game not found. Launch Epic Seven and open the Secret Shop.")
-            return
-
+            return {"ok": False}
+        cfg = dict(self.cfg)
+        cfg["skystone_budget"] = b
+        cfg["buy_targets"] = ["covenant_bookmark", "mystic_medal"]
         self._running = True
-        self._set_actions_enabled(False)
-        self.stop_btn.configure(state="normal")
-        self._reset_stats()
         R.reset_abort()
 
         def work():
@@ -358,33 +126,72 @@ class App:
             try:
                 bot = R.Bot(cfg, gw)
                 self._bot = bot
-                R.log.info("Run started (budget=%d).", cfg["skystone_budget"])
+                R.log.info("Run started (budget=%d).", b)
                 R.run(bot)
             except Exception as e:
                 R.log.error("Run error: %s", e)
             finally:
                 if bot is not None:
                     bot.close()
-                self._ui(self._on_run_finished)
+                self._running = False
 
-        self._run_thread = threading.Thread(target=work, daemon=True)
-        self._run_thread.start()
+        threading.Thread(target=work, daemon=True).start()
+        return {"ok": True}
 
     def stop(self):
         if self._running:
             R.request_abort()
-            self.stop_btn.configure(state="disabled")
+        return {"ok": True}
 
-    def _on_run_finished(self):
-        self._update_stats(force=True)
-        self._running = False
-        self._set_actions_enabled(True)
-        self.stop_btn.configure(state="disabled")
+    def poll(self):
+        logs = []
+        try:
+            while True:
+                logs.append(self.log_q.get_nowait())
+        except queue.Empty:
+            pass
+        budget = int(self.cfg.get("skystone_budget", 3000))
+        b = self._bot
+        if b is not None:
+            s = b.stats
+            spent = s["skystones_spent"]
+            if self._running and b.started_at:
+                el = int(time.time() - b.started_at)
+                self._elapsed = f"{el // 60}m {el % 60:02d}s"
+            stats = {"refreshes": s["refreshes"], "spent": spent,
+                     "budget_left": max(0, budget - spent),
+                     "covenant": s["bought"].get("covenant_bookmark", 0),
+                     "mystic": s["bought"].get("mystic_medal", 0),
+                     "elapsed": self._elapsed}
+        else:
+            stats = {"refreshes": 0, "spent": 0, "budget_left": budget,
+                     "covenant": 0, "mystic": 0, "elapsed": "0m 00s"}
+        return {"running": self._running, "stats": stats, "log": logs}
+
+    def minimize(self):
+        if self.window:
+            self.window.minimize()
+
+    def close(self):
+        if self.window:
+            self.window.destroy()
+
+    # ---------------------------------------------------------------- helpers
+    def _parse(self, v):
+        digits = "".join(ch for ch in str(v) if ch.isdigit())
+        return int(digits) if digits else None
+
+    def _write_cfg(self):
+        try:
+            with open(R.CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(self.cfg, f, indent=2)
+        except Exception as e:
+            R.log.warning("Could not save config: %s", e)
 
 
 def _relaunch_as_admin() -> bool:
     """Relaunch elevated (UAC). Epic Seven runs elevated, so PostMessage clicks are blocked
-    (Access denied) unless we match its privilege level."""
+    unless we match its privilege level."""
     script = os.path.abspath(sys.argv[0])
     try:
         rc = ctypes.windll.shell32.ShellExecuteW(
@@ -398,14 +205,22 @@ def main():
     if os.name == "nt" and not is_admin():
         if _relaunch_as_admin():
             return  # elevated instance launched; quit this one
-        # elevation declined/failed — run anyway, App will warn
 
-    root = tk.Tk()
-    App(root)  # theme (light/dark) is applied inside App from config
+    api = Api()
+    with open(WEBUI, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    api.window = webview.create_window(
+        "E7SSRefresher - Background Secret Shop Refresher",
+        html=html, js_api=api,
+        width=744, height=770,
+        frameless=True, easy_drag=False, resizable=False,
+        background_color="#15181e")
+
     if not is_admin():
         R.log.warning("NOT running as administrator — Epic Seven runs elevated, so clicks "
                       "will fail with 'Access denied'. Relaunch and accept the UAC prompt.")
-    root.mainloop()
+    webview.start()
 
 
 if __name__ == "__main__":
