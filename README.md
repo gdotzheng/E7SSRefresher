@@ -26,6 +26,10 @@ no terminal. The .exe itself is self-contained and can live anywhere. Its settin
 
 To re-create a template, you still need the Python tools (`py tools/snip.py`) — the .exe is for running.
 
+**Publish a new version:** `release.bat v1.0.1 "what changed"` builds the exe and creates a GitHub
+Release with it attached (needs the `gh` CLI, authenticated). Downloads:
+`gh release download <tag> -R gdotzheng/E7SSRefresher`, or from the repo's Releases page.
+
 ## Easiest way: the control panel (no commands)
 
 1. One-time install of dependencies (double-click won't do this): open a terminal in this folder and run
