@@ -74,6 +74,8 @@ class Api:
         self._running = False
         self._bot = None
         self._elapsed = "0m 00s"
+        self._det = {"detected": False, "status": "Detecting…", "size": ""}
+        self._poll_n = 0
         R.log.addHandler(QueueLogHandler(self.log_q))
         R.log.setLevel(logging.INFO)
 
@@ -82,12 +84,21 @@ class Api:
         return {"budget": int(self.cfg.get("skystone_budget", 3000)),
                 "dark": bool(self.cfg.get("dark_mode", True))}
 
-    def detect_game(self):
-        gw = W.find_game_window()
+    def _detect(self):
+        try:
+            gw = W.find_game_window()
+        except Exception as e:
+            R.log.warning("detect error: %s", e)
+            gw = None
         if gw:
-            return {"detected": True, "status": "Epic Seven detected",
-                    "size": f"{gw.width} × {gw.height}"}
-        return {"detected": False, "status": "Epic Seven not found", "size": ""}
+            self._det = {"detected": True, "status": "Epic Seven detected",
+                         "size": f"{gw.width} × {gw.height}"}
+        else:
+            self._det = {"detected": False, "status": "Epic Seven not found", "size": ""}
+        return self._det
+
+    def detect_game(self):
+        return self._detect()
 
     def save(self, budget):
         b = self._parse(budget)
@@ -144,6 +155,9 @@ class Api:
         return {"ok": True}
 
     def poll(self):
+        self._poll_n += 1
+        if self._poll_n % 5 == 1:   # refresh detection ~every 2s so the status self-heals
+            self._detect()
         logs = []
         try:
             while True:
@@ -166,7 +180,9 @@ class Api:
         else:
             stats = {"refreshes": 0, "spent": 0, "budget_left": budget,
                      "covenant": 0, "mystic": 0, "elapsed": "0m 00s"}
-        return {"running": self._running, "stats": stats, "log": logs}
+        d = self._det
+        return {"detected": d["detected"], "status": d["status"], "size": d["size"],
+                "running": self._running, "stats": stats, "log": logs}
 
     def minimize(self):
         if self.window:

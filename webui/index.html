@@ -321,11 +321,12 @@
   $("minBtn").onclick    = () => { const a = api(); if (a) a.minimize(); };
   $("closeBtn").onclick  = () => { const a = api(); if (a) a.close(); };
 
-  // ---- poll loop (bridge present)
+  // ---- poll loop: drives status + stats + log; self-heals so the UI never sticks
   async function poll() {
     const a = api(); if (!a) return;
     try {
       const r = await a.poll();
+      setStatus(r.detected, r.status, r.size);
       if (r.running !== running) setRunning(r.running);
       renderStats(r.stats);
       appendLog(r.log);
@@ -337,16 +338,15 @@
     const a = api();
     if (!a) { setTimeout(init, 150); return; }  // bridge not ready yet — keep polling for it
     inited = true;
-    const r = await a.get_init();
-    $("budget").value = fmtNum(r.budget);
-    setDark(r.dark);
-    const d = await a.detect_game();
-    setStatus(d.detected, d.status, d.size);
-    const p = await a.poll();
-    setRunning(p.running);
-    renderStats(p.stats);
-    appendLog(p.log);
+    // Start the poll loop FIRST so status/stats/log keep updating even if a single bridge
+    // call below stalls — the UI can never get permanently stuck on "Detecting…".
     setInterval(poll, 400);
+    poll();
+    try {
+      const r = await a.get_init();
+      $("budget").value = fmtNum(r.budget);
+      setDark(r.dark);
+    } catch (e) { /* keep defaults */ }
   }
 
   // Don't rely on the pywebviewready event alone (it can be missed); poll until the bridge exists.
