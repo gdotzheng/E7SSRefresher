@@ -20,8 +20,9 @@ build.bat
 ```
 
 This produces **`dist\E7SSRefresher.exe`**. Double-click it (accept the UAC prompt) — no Python install,
-no terminal. On first run it creates an editable `config.json` next to the .exe; `dryrun.png` and any
-`debug_*.png` are written there too. Put the .exe in a normal folder (not `Program Files`).
+no terminal. The .exe itself is self-contained and can live anywhere. Its settings and output go to
+**`%APPDATA%\E7SSRefresher\`** (`C:\Users\<you>\AppData\Roaming\E7SSRefresher\`): an editable
+`config.json` (seeded on first run), plus `dryrun.png` / `debug_*.png`.
 
 To re-create a template, you still need the Python tools (`py tools/snip.py`) — the .exe is for running.
 

@@ -31,9 +31,12 @@ import refresher as R    # noqa: E402
 
 
 def _ext_dir() -> str:
-    """Writable dir: next to the .exe when frozen, else this file's dir."""
+    """Writable dir: %APPDATA%\\E7SSRefresher when frozen, else this file's dir."""
     if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+        d = os.path.join(base, "E7SSRefresher")
+        os.makedirs(d, exist_ok=True)
+        return d
     return HERE
 
 

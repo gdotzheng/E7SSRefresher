@@ -34,10 +34,14 @@ def _res_dir() -> str:
 
 
 def _ext_dir() -> str:
-    """Writable/editable files (config, dryrun, debug): next to the .exe when frozen,
-    else this file's dir."""
+    """Writable/editable files (config, dryrun, debug). When packaged as an .exe these live
+    in %APPDATA%\\E7SSRefresher so the exe folder stays clean and it works anywhere; in dev
+    they stay in this file's dir."""
     if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+        d = os.path.join(base, "E7SSRefresher")
+        os.makedirs(d, exist_ok=True)
+        return d
     return os.path.dirname(os.path.abspath(__file__))
 
 
