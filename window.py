@@ -84,6 +84,15 @@ def window_title(hwnd: int) -> str:
     return win32gui.GetWindowText(hwnd)
 
 
+def is_minimized(hwnd: int) -> bool:
+    """True if the window is minimized (iconic). WGC/PrintWindow can't capture a minimized
+    window, so the bot must wait for it to be restored."""
+    try:
+        return bool(win32gui.IsIconic(hwnd))
+    except Exception:
+        return False
+
+
 def set_client_size(hwnd: int, client_w: int, client_h: int) -> tuple[int, int]:
     """Resize the window so its CLIENT area (the game content) becomes client_w x client_h.
     MoveWindow sizes the outer window, so we add the current non-client border delta.

@@ -118,6 +118,9 @@ class Bot:
     def grab(self):
         return self.cap.capture()
 
+    def is_minimized(self) -> bool:
+        return W.is_minimized(self.gw.hwnd)
+
     def fit_window(self):
         """Resize the game to the resolution the templates were captured at, so matching is
         reliable no matter how the window was left. Controlled by config auto_resize."""
@@ -331,6 +334,21 @@ def dry_run(bot: "Bot"):
 
 
 # --------------------------------------------------------------------------- main loop
+def _pause_if_minimized(bot: "Bot") -> bool:
+    """If Epic Seven is minimized the screen can't be captured, so pause with a clear message
+    and wait until it's restored. Returns True if it paused (caller should restart the cycle)."""
+    if not bot.is_minimized():
+        return False
+    log.warning("Epic Seven is minimized — I can't see the screen, so I'm paused. Restore the "
+                "game window to continue (it can stay behind other windows — just not minimized).")
+    while bot.is_minimized() and not _abort:
+        time.sleep(1.0)
+    if not _abort:
+        log.info("Epic Seven restored — resuming.")
+        bot.fit_window()
+    return True
+
+
 def run(bot: "Bot"):
     budget = bot.cfg["skystone_budget"]
     st = bot.stats
@@ -345,48 +363,62 @@ def run(bot: "Bot"):
     fails = 0
     max_fails = bot.cfg.get("max_consecutive_fails", 3)
     while not _abort:
+        if _pause_if_minimized(bot):
+            continue
+
         cost = REFRESH_COST
         if st["skystones_spent"] + cost > budget:
             log.info("Budget reached (spent %d, next refresh %d, budget %d). Stopping.",
                      st["skystones_spent"], cost, budget)
             break
 
-        bot.dismiss_dialog()  # clear any stray popup (leftover or manual) before acting
-        if not V.on_secret_shop_screen(bot.grab(), bot.th):
-            fails += 1
-            log.warning("Not on the Secret Shop screen (%d/%d).", fails, max_fails)
-            bot.save_debug(bot.grab(), "lost_screen")
-            if fails >= max_fails:
-                log.info("Stopping: lost the shop screen %d times in a row.", max_fails)
+        try:
+            bot.dismiss_dialog()  # clear any stray popup before acting
+            if not V.on_secret_shop_screen(bot.grab(), bot.th):
+                fails += 1
+                log.warning("Not on the Secret Shop screen (%d/%d).", fails, max_fails)
+                bot.save_debug(bot.grab(), "lost_screen")
+                if fails >= max_fails:
+                    log.info("Stopping: lost the shop screen %d times in a row.", max_fails)
+                    break
+                bot.dismiss_dialog()
+                time.sleep(1.0)
+                continue
+
+            bot.buy_targets()
+            if _abort:
                 break
-            bot.dismiss_dialog()
-            time.sleep(1.0)
-            continue
 
-        bot.buy_targets()
-        if _abort:
-            break
+            if not bot.refresh():
+                fails += 1
+                log.warning("Refresh failed (%d/%d) — recovering.", fails, max_fails)
+                if fails >= max_fails:
+                    log.info("Stopping: refresh failed %d times in a row.", max_fails)
+                    break
+                bot.dismiss_dialog()
+                time.sleep(1.0)
+                continue
 
-        if not bot.refresh():
+            fails = 0  # a good refresh clears the streak
+            st["skystones_spent"] += cost
+            st["refreshes"] += 1
+            log.info("Refresh #%d done. Skystones spent: %d / %d",
+                     st["refreshes"], st["skystones_spent"], budget)
+
+            if not bot.wait_for_shop():
+                log.warning("Shop did not reappear in time — recovering.")
+                bot.save_debug(bot.grab(), "no_reappear")
+                bot.dismiss_dialog()
+        except Exception as e:
+            # If the game got minimized mid-cycle, the capture fails — pause cleanly next loop.
+            if bot.is_minimized():
+                continue
             fails += 1
-            log.warning("Refresh failed (%d/%d) — recovering.", fails, max_fails)
+            log.warning("Cycle error (%d/%d): %s", fails, max_fails, e)
             if fails >= max_fails:
-                log.info("Stopping: refresh failed %d times in a row.", max_fails)
+                log.info("Stopping after repeated errors.")
                 break
-            bot.dismiss_dialog()
             time.sleep(1.0)
-            continue
-
-        fails = 0  # a good refresh clears the streak
-        st["skystones_spent"] += cost
-        st["refreshes"] += 1
-        log.info("Refresh #%d done. Skystones spent: %d / %d",
-                 st["refreshes"], st["skystones_spent"], budget)
-
-        if not bot.wait_for_shop():
-            log.warning("Shop did not reappear in time — recovering.")
-            bot.save_debug(bot.grab(), "no_reappear")
-            bot.dismiss_dialog()
 
     bought = ", ".join(f"{n}:{c}" for n, c in st["bought"].items()) or "none"
     log.info("Finished. %d refreshes, ~%d skystones spent. Bought: %s",
