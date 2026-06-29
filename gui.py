@@ -20,6 +20,15 @@ import threading
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
+# Keep the Edge WebView2 renderer fully active when the window is in the background. Without
+# this, Chromium throttles/suspends JS timers (and even the initial script) whenever the app
+# isn't the foreground window — which froze the UI on "Detecting…" while Epic Seven had focus.
+# Must be set before WebView2 starts.
+os.environ.setdefault(
+    "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+    "--disable-background-timer-throttling --disable-renderer-backgrounding "
+    "--disable-backgrounding-occluded-windows")
+
 import webview          # noqa: E402
 import window as W      # noqa: E402
 import refresher as R   # noqa: E402
@@ -31,6 +40,9 @@ def _res_dir() -> str:
 
 
 WEBUI = os.path.join(_res_dir(), "webui", "index.html")
+
+_api = None     # set in main(); referenced by the push loop
+_window = None
 
 
 def is_admin() -> bool:
@@ -226,26 +238,47 @@ def _relaunch_as_admin() -> bool:
         return False
 
 
+def _push_loop():
+    """Drive the UI from Python via evaluate_js. Runs in its own thread (started by
+    webview.start), so updates land even when the window is in the background and Chromium
+    would have throttled a JS-side timer. evaluate_js executes regardless of focus."""
+    time.sleep(0.4)
+    try:
+        _window.evaluate_js("window.initSettings && window.initSettings(%s); 1"
+                            % json.dumps(_api.get_init()))
+    except Exception:
+        pass
+    while True:
+        try:
+            _window.evaluate_js("window.applyState && window.applyState(%s); 1"
+                                % json.dumps(_api.poll()))
+        except Exception:
+            pass
+        time.sleep(0.4)
+
+
 def main():
     if os.name == "nt" and not is_admin():
         if _relaunch_as_admin():
             return  # elevated instance launched; quit this one
 
-    api = Api()
+    global _api, _window
+    _api = Api()
     with open(WEBUI, "r", encoding="utf-8") as f:
         html = f.read()
 
-    api.window = webview.create_window(
+    _window = webview.create_window(
         "E7SSRefresher - Background Secret Shop Refresher",
-        html=html, js_api=api,
+        html=html, js_api=_api,
         width=744, height=770,
         frameless=True, easy_drag=False, resizable=False,
         background_color="#15181e")
+    _api.window = _window
 
     if not is_admin():
         R.log.warning("NOT running as administrator — Epic Seven runs elevated, so clicks "
                       "will fail with 'Access denied'. Relaunch and accept the UAC prompt.")
-    webview.start()
+    webview.start(_push_loop)
 
 
 if __name__ == "__main__":

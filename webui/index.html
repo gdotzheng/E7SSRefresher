@@ -252,7 +252,6 @@
   const api = () => { const a = window.pywebview && window.pywebview.api; return (a && a.poll) ? a : null; };
   const fmtNum = n => Number(n).toLocaleString("en-US");
   let running = false;
-  let inited = false;
 
   function renderStats(s) {
     const grid = $("statsGrid");
@@ -320,38 +319,19 @@
   $("minBtn").onclick    = () => { const a = api(); if (a) a.minimize(); };
   $("closeBtn").onclick  = () => { const a = api(); if (a) a.close(); };
 
-  // ---- poll loop: drives status + stats + log; self-heals so the UI never sticks
-  async function poll() {
-    const a = api(); if (!a) return;
+  // Python PUSHES state into the page (WebView2 throttles JS timers in a background window,
+  // so a JS-side poll loop can't be relied on). These are called from Python via evaluate_js.
+  window.applyState = function (s) {
     try {
-      const r = await a.poll();
-      setStatus(r.detected, r.status, r.size);
-      if (r.running !== running) setRunning(r.running);
-      renderStats(r.stats);
-      appendLog(r.log);
-    } catch (e) { /* ignore transient */ }
-  }
-
-  async function init() {
-    if (inited) return;
-    const a = api();
-    if (!a) { setTimeout(init, 150); return; }  // bridge not ready yet — keep polling for it
-    inited = true;
-    // Start the poll loop FIRST so status/stats/log keep updating even if a single bridge
-    // call below stalls — the UI can never get permanently stuck on "Detecting…".
-    setInterval(poll, 400);
-    poll();
-    try {
-      const r = await a.get_init();
-      $("budget").value = fmtNum(r.budget);
-      setDark(r.dark);
-    } catch (e) { /* keep defaults */ }
-  }
-
-  // Don't rely on the pywebviewready event alone (it can be missed); poll until the bridge exists.
-  window.addEventListener("pywebviewready", init);
-  window.addEventListener("DOMContentLoaded", init);
-  init();
+      setStatus(s.detected, s.status, s.size);
+      if (s.running !== running) setRunning(s.running);
+      renderStats(s.stats);
+      appendLog(s.log);
+    } catch (e) {}
+  };
+  window.initSettings = function (s) {
+    try { $("budget").value = fmtNum(s.budget); setDark(s.dark); } catch (e) {}
+  };
 </script>
 </body>
 </html>
