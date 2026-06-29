@@ -1,0 +1,7 @@
+opencv-python>=4.9
+numpy>=1.26
+Pillow>=10.0
+pywin32>=306
+psutil>=5.9
+windows-capture>=2.0.0
+keyboard>=0.13.5

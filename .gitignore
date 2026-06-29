@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# Generated captures / debug output (runtime artifacts, not source)
+dryrun.png
+gui_capture.png
+debug_*.png
+diag_*.png
+tools/snapshot.png
+tools/probe_*.png
+
+# Keep templates/ — they are required for the bot to work
