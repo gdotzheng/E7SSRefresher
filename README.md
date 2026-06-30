@@ -45,8 +45,8 @@ The panel (a pywebview/HTML window — `webui/index.html` rendered in Edge WebVi
   budget left, Covenant/Mystic bought, elapsed) and an Activity log.
 - **Dark mode** toggle (top-right) — remembered across launches.
 
-The bot runs in a background thread, so it keeps going even when the window isn't focused; the UI
-catches up when you look at it.
+The bot runs in a background thread and the panel is driven from Python, so it keeps working and the
+UI keeps updating even when the window isn't focused (e.g. while you're looking at the game).
 
 Buy targets are fixed to **Covenant Bookmarks + Mystic Medals**. Other tuning (mode, capture backend,
 match threshold, scroll, etc.) lives in `config.json`. The sections below cover the command line, if you prefer.
@@ -107,6 +107,7 @@ Press **F12** (configurable) or **Ctrl+C** to stop.
 | `auto_resize` + `target_window` | on Start/Dry-Run, resize the game's client area to `[w,h]` (the size the templates were captured at) so matching is reliable regardless of how the window was left |
 | `mode` | `background` / `hybrid` / `foreground` (from the probe) |
 | `capture_backend` | `wgc` or `printwindow` |
+| `dark_mode` | start in dark (`true`) or light (`false`) theme; also toggled from the panel |
 | `skystone_budget` | stop once this many skystones have been spent on refreshes (each refresh = 3) |
 | `buy_targets` | which item templates to buy each cycle |
 | `match_threshold` | template-match confidence (0–1); raise if it misclicks, lower if it misses |
@@ -120,20 +121,24 @@ Press **F12** (configurable) or **Ctrl+C** to stop.
 ## Files
 
 ```
-gui.py           control-panel GUI (Tkinter); launched by "Start E7SSRefresher.bat"
-refresher.py     main loop / state machine + --dry-run
-window.py        window lookup, capture (WGC / PrintWindow), input (PostMessage / cursor)
-vision.py        OpenCV template matching helpers
-config.json      settings
-templates/       your cropped button/item PNGs
-tools/probe.py   feasibility probe (run first)
-tools/snip.py    capture the client to crop templates from
+gui.py            control panel — pywebview Python<->JS bridge; launched by "Start E7SSRefresher.bat"
+webui/index.html  the panel's HTML/CSS/JS (rendered in Edge WebView2)
+refresher.py      main loop / state machine (+ CLI --dry-run)
+window.py         window lookup, capture (WGC / PrintWindow), input (PostMessage / cursor)
+vision.py         OpenCV template matching helpers
+config.json       default settings (the exe seeds a copy into %APPDATA%\E7SSRefresher\)
+templates/        cropped button/item PNGs (bundled into the exe)
+tools/probe.py    feasibility probe;  tools/snip.py  capture frames to crop templates from
+build.bat         build the standalone .exe (PyInstaller)
+release.bat       build + publish a GitHub Release (gh CLI)
 ```
 
 ## Troubleshooting
 
 - **"Access is denied" on clicks / clicks do nothing** — the game runs elevated; the panel must run
   as administrator. Relaunch and accept the UAC prompt (or right-click the .bat → Run as administrator).
+- **Epic Seven minimized** — a minimized window can't be captured, so the bot pauses and logs a
+  message; restore the game (it can stay behind other windows, just not minimized) and it resumes.
 - **Window not found** — the game must be running; the script targets `EpicSeven.exe`.
 - **Captures are black** — use `mode=foreground` / `capture_backend=printwindow`, keep E7 in front.
 - **Misses / misclicks** — recapture templates at your exact resolution; tune `match_threshold`.
