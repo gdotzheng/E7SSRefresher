@@ -349,16 +349,35 @@ def _pause_if_minimized(bot: "Bot") -> bool:
     return True
 
 
+def _wait_for_shop_screen(bot: "Bot") -> None:
+    """If the Secret Shop isn't visible (you navigated away), pause and wait until it's back,
+    then resume. A short grace first avoids noise during normal screen reloads."""
+    grace = time.time() + 3.0
+    while time.time() < grace and not _abort:
+        bot.dismiss_dialog()
+        if V.on_secret_shop_screen(bot.grab(), bot.th):
+            return
+        time.sleep(0.5)
+    if _abort:
+        return
+    log.warning("Secret Shop not visible — paused. Return to the Secret Shop to resume "
+                "(or press Stop).")
+    while not _abort:
+        if not bot.is_minimized():
+            bot.dismiss_dialog()
+            if V.on_secret_shop_screen(bot.grab(), bot.th):
+                log.info("Back on the Secret Shop — resuming.")
+                bot.fit_window()
+                return
+        time.sleep(1.0)
+
+
 def run(bot: "Bot"):
     budget = bot.cfg["skystone_budget"]
     st = bot.stats
     bot.started_at = time.time()
 
     bot.fit_window()
-    if not V.on_secret_shop_screen(bot.grab(), bot.th):
-        log.error("Not on the Secret Shop screen. Open the Secret Shop and retry.")
-        return
-
     log.info("Starting. Skystone budget for refreshes: %d", budget)
     fails = 0
     max_fails = bot.cfg.get("max_consecutive_fails", 3)
@@ -375,14 +394,8 @@ def run(bot: "Bot"):
         try:
             bot.dismiss_dialog()  # clear any stray popup before acting
             if not V.on_secret_shop_screen(bot.grab(), bot.th):
-                fails += 1
-                log.warning("Not on the Secret Shop screen (%d/%d).", fails, max_fails)
-                bot.save_debug(bot.grab(), "lost_screen")
-                if fails >= max_fails:
-                    log.info("Stopping: lost the shop screen %d times in a row.", max_fails)
-                    break
-                bot.dismiss_dialog()
-                time.sleep(1.0)
+                # Navigated away from the shop (or starting off it) — wait for it to return.
+                _wait_for_shop_screen(bot)
                 continue
 
             bot.buy_targets()

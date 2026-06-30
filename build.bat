@@ -5,6 +5,7 @@ rem next to the .exe on first run and is editable afterwards.
 cd /d "%~dp0"
 py -m pip install --quiet pyinstaller
 py -m PyInstaller --noconfirm --onefile --windowed --uac-admin --name E7SSRefresher ^
+  --icon icon.ico ^
   --add-data "templates;templates" ^
   --add-data "webui;webui" ^
   --add-data "config.json;." ^
