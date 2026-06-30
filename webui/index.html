@@ -144,6 +144,7 @@
     font-weight: 600; }
   .statcard .v { font: 600 21px/1 ui-monospace,'Cascadia Code',monospace; color: var(--text); }
   .statcard .v.hi { color: var(--accent); }
+  .statcard .vsub { font-size: 10.5px; color: var(--muted); margin-top: -2px; }
 
   /* log */
   .logheader { display: flex; align-items: center; margin-bottom: 8px; }
@@ -258,12 +259,19 @@
   function renderStats(s) {
     const grid = $("statsGrid");
     grid.innerHTML = "";
+    // avg skystones spent per item bought (total skystones / count)
+    const perItem = n => (n > 0 ? fmtNum(Math.round(s.spent / n)) + " sky/ea" : "—");
     for (const d of STAT_DEFS) {
       let val = s[d.key];
       if (typeof val === "number") val = fmtNum(val);
+      let sub = "";
+      if (d.key === "covenant") sub = perItem(s.covenant);
+      else if (d.key === "mystic") sub = perItem(s.mystic);
       grid.insertAdjacentHTML("beforeend",
         `<div class="statcard"><span class="k">${d.label}</span>` +
-        `<span class="v${d.hi ? " hi" : ""}">${val ?? "0"}</span></div>`);
+        `<span class="v${d.hi ? " hi" : ""}">${val ?? "0"}</span>` +
+        (sub ? `<span class="vsub">${sub}</span>` : "") +
+        `</div>`);
     }
   }
 
