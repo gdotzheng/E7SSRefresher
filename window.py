@@ -271,7 +271,12 @@ class PostMessageInput:
 
     def scroll(self, notches: int, x: int, y: int):
         """Wheel scroll at client (x,y). notches<0 scrolls down. WM_MOUSEWHEEL needs
-        SCREEN coords in lParam. Many small notches are needed (E7 scrolls a little per notch)."""
+        SCREEN coords in lParam. Many small notches are needed (E7 scrolls a little per notch).
+        Screen coords are recomputed each call, so it follows the game window if it's moved."""
+        # Hover the list first (client coords) so the game routes the wheel to it — needed
+        # after you've interacted with the window.
+        win32gui.PostMessage(self.hwnd, win32con.WM_MOUSEMOVE, 0, _make_lparam(int(x), int(y)))
+        time.sleep(0.02)
         sx, sy = win32gui.ClientToScreen(self.hwnd, (int(x), int(y)))
         lp = (sy << 16) | (sx & 0xFFFF)
         d = -WHEEL_DELTA if notches < 0 else WHEEL_DELTA

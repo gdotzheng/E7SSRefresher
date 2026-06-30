@@ -269,7 +269,7 @@ def main():
     _window = webview.create_window(
         "E7SSRefresher - Background Secret Shop Refresher",
         html=html, js_api=_api,
-        width=744, height=770,
+        width=744, height=635,
         frameless=True, easy_drag=False, resizable=False,
         background_color="#15181e")
 
