@@ -192,7 +192,6 @@
             <span class="statustext" id="statusText">Detecting&hellip;</span>
             <span class="badge" id="sizeBadge"></span>
             <div class="spacer"></div>
-            <div class="btn-soft" id="detectBtn">Detect game</div>
             <div class="darktoggle">
               <span>Dark</span>
               <div class="switch on" id="darkSwitch"><div class="knob"></div></div>
@@ -320,7 +319,6 @@
   function fmtBudget() { $("budget").value = fmtNum(parseBudget()); }
 
   $("budget").addEventListener("blur", fmtBudget);
-  $("detectBtn").onclick = async () => { const a = api(); if (a) { const r = await a.detect_game(); setStatus(r.detected, r.status, r.size); } };
   $("saveBtn").onclick   = () => { const a = api(); fmtBudget(); if (a) a.save(parseBudget()); };
   $("startBtn").onclick  = () => { if (running) return; const a = api(); fmtBudget(); if (a) a.start(parseBudget()); setRunning(true); };
   $("stopBtn").onclick   = () => { if (!running) return; const a = api(); if (a) a.stop(); };
