@@ -96,6 +96,13 @@ def load_config(path: str = CONFIG_PATH) -> dict:
 # A Secret Shop refresh always costs 3 skystones.
 REFRESH_COST = 3
 
+# Friendly names for the log / UI.
+DISPLAY_NAMES = {"covenant_bookmark": "Covenant Bookmark", "mystic_medal": "Mystic Medal"}
+
+
+def _name(target: str) -> str:
+    return DISPLAY_NAMES.get(target, target)
+
 
 # --------------------------------------------------------------------------- helpers
 class Bot:
@@ -154,7 +161,7 @@ class Bot:
         try:
             return self.find_all(target, screen)
         except FileNotFoundError:
-            log.warning("template '%s' not captured yet - skipping it.", target)
+            log.warning("template for %s not captured yet - skipping it.", _name(target))
             return []
 
     def _list_change(self, a, b) -> float:
@@ -189,16 +196,22 @@ class Bot:
         self.scroll_to_top()
 
     def _buy_visible(self, screen):
+        buys = self.find_all("buy_button", screen)
         for target in self.cfg["buy_targets"]:
             if _abort:
                 return
-            items = self._find_items(target, screen)
-            if not items:
-                continue
-            log.info("Found %d x %s in view", len(items), target)
-            for m in items:
+            for m in self._find_items(target, screen):
                 if _abort:
                     return
+                # Only act on items that are buyable RIGHT NOW: an available (green) Buy
+                # button in the same row. Already-bought (greyed) or partially-scrolled
+                # items are skipped silently — no re-attempt and no log noise.
+                if not buys:
+                    continue
+                row = min(buys, key=lambda b: abs(b.y - m.y))
+                if abs(row.y - m.y) > 40 or not self._is_available(screen, row):
+                    continue
+                log.info("Found %s — buying.", _name(target))
                 self._buy_one(m, target)
 
     def dismiss_dialog(self, tries: int = 4) -> bool:
@@ -235,12 +248,10 @@ class Bot:
         screen = self.grab()
         buys = self.find_all("buy_button", screen)
         if not buys:
-            log.info("  no Buy button visible for %s - skipping", target)
             return
         row_buy = min(buys, key=lambda b: abs(b.y - item_match.y))
         if abs(row_buy.y - item_match.y) > 40 or not self._is_available(screen, row_buy):
             # No available (green) Buy button in this row -> already bought / sold out.
-            log.info("  %s is already bought or unavailable - skipping", target)
             return
         self.click_match(row_buy, self.d["after_click"])  # should open the purchase popup
         screen = self.grab()
@@ -248,16 +259,16 @@ class Bot:
         # popup (or hit the wrong spot) — do NOT click buy_confirm, because it can match a
         # shop "Buy" button and buy the wrong item. Bail safely instead.
         if not self.find("cancel_button", screen):
-            log.info("  purchase popup didn't open for %s - skipping", target)
+            log.info("  purchase popup didn't open for %s - skipping", _name(target))
             return
         confirm = self.find("buy_confirm", screen)
         if not confirm:
-            log.info("  Buy button missing in popup for %s - cancelling", target)
+            log.info("  Buy button missing in popup for %s - cancelling", _name(target))
             self.dismiss_dialog()
             return
         self.click_match(confirm, self.d["after_buy"])
         self.stats["bought"][target] = self.stats["bought"].get(target, 0) + 1
-        log.info("  bought %s", target)
+        log.info("  bought %s", _name(target))
         self.dismiss_dialog()  # close any follow-up dialog so the screen is clean
 
     def _wait_for(self, name, timeout: float = 2.5, interval: float = 0.25):
