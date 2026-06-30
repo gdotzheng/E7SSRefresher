@@ -268,7 +268,7 @@ class Bot:
             return
         self.click_match(confirm, self.d["after_buy"])
         self.stats["bought"][target] = self.stats["bought"].get(target, 0) + 1
-        log.info("  bought %s", _name(target))
+        log.info("  Bought %s", _name(target))
         self.dismiss_dialog()  # close any follow-up dialog so the screen is clean
 
     def _wait_for(self, name, timeout: float = 2.5, interval: float = 0.25):
@@ -444,7 +444,7 @@ def run(bot: "Bot"):
                 break
             time.sleep(1.0)
 
-    bought = ", ".join(f"{n}:{c}" for n, c in st["bought"].items()) or "none"
+    bought = ", ".join(f"{_name(n)} x{c}" for n, c in st["bought"].items()) or "none"
     log.info("Finished. %d refreshes, ~%d skystones spent. Bought: %s",
              st["refreshes"], st["skystones_spent"], bought)
 
