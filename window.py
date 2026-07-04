@@ -193,10 +193,11 @@ class WGCCapture:
         self._control = None
 
         # Target by HWND (the windows-capture docs note this is more reliable than title,
-        # and E7's window title may be empty or non-unique).
+        # and E7's window title may be empty or non-unique). Leave draw_border unset (None):
+        # toggling the capture border isn't supported on all Windows builds and throws
+        # ("Toggling the capture border is not supported ... on this platform").
         self._cap = WindowsCapture(
             cursor_capture=False,
-            draw_border=False,
             window_hwnd=hwnd,
         )
 
