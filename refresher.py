@@ -374,7 +374,7 @@ def _wait_for_shop_screen(bot: "Bot") -> bool:
     if _abort:
         return False
     if not bot.cfg.get("keep_alive_on_leave", True):
-        log.info("Left the Secret Shop — stopping (\"Keep running when leaving the shop\" "
+        log.info("Left the Secret Shop — stopping (\"Auto-resume when returning to shop\" "
                  "is off).")
         return False
     log.warning("Secret Shop not visible — paused. Return to the Secret Shop to resume "

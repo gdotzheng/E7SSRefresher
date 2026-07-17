@@ -145,7 +145,7 @@ class Api:
         if b is not None:
             b.cfg["keep_alive_on_leave"] = bool(on)  # apply to a run already in progress
         self._write_cfg()
-        R.log.info("Keep running when leaving the shop: %s.", "on" if on else "off")
+        R.log.info("Auto-resume when returning to shop: %s.", "on" if on else "off")
         return {"ok": True}
 
     def start(self, budget):
