@@ -96,7 +96,8 @@ class Api:
     # ---------------------------------------------------------------- exposed
     def get_init(self):
         return {"budget": int(self.cfg.get("skystone_budget", 3000)),
-                "dark": bool(self.cfg.get("dark_mode", True))}
+                "dark": bool(self.cfg.get("dark_mode", True)),
+                "keepAlive": bool(self.cfg.get("keep_alive_on_leave", True))}
 
     def _detect(self):
         try:
@@ -136,6 +137,15 @@ class Api:
     def set_dark(self, dark):
         self.cfg["dark_mode"] = bool(dark)
         self._write_cfg()
+        return {"ok": True}
+
+    def set_keep_alive(self, on):
+        self.cfg["keep_alive_on_leave"] = bool(on)
+        b = self._bot
+        if b is not None:
+            b.cfg["keep_alive_on_leave"] = bool(on)  # apply to a run already in progress
+        self._write_cfg()
+        R.log.info("Keep running when leaving the shop: %s.", "on" if on else "off")
         return {"ok": True}
 
     def start(self, budget):

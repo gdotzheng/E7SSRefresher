@@ -8,6 +8,7 @@
     623
   ],
   "skystone_budget": 3000,
+  "keep_alive_on_leave": true,
   "buy_targets": [
     "covenant_bookmark",
     "mystic_medal"

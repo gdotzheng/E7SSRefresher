@@ -124,6 +124,11 @@
   .inputwrap input { flex: 1; min-width: 0; border: none; outline: none; background: transparent;
     font: 600 15px ui-monospace,'Cascadia Code',monospace; color: var(--text); user-select: text; }
   .inputwrap .suffix { margin-left: 8px; font-size: 11px; color: var(--muted-2); }
+  .checkline { display: flex; align-items: center; gap: 8px; height: 38px; font-size: 12px;
+    color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .checkline:hover { color: var(--text-2); }
+  .checkline input { width: 15px; height: 15px; margin: 0; cursor: pointer;
+    accent-color: var(--accent); }
 
   .runrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
   .btn.run { height: 46px; border-radius: 8px; font-size: 14.5px; font-weight: 600; display: flex;
@@ -209,6 +214,11 @@
               </div>
             </div>
             <div class="btn-soft" id="saveBtn">Save</div>
+            <label class="checkline"
+                   title="Checked: leaving the Secret Shop pauses the run and it resumes when you return. Unchecked: leaving the shop stops the run.">
+              <input type="checkbox" id="keepAlive" checked>
+              <span>Keep running when leaving the shop</span>
+            </label>
           </div>
           <div class="runrow">
             <div class="btn run filled-accent" id="startBtn">&#9654;&ensp;Start</div>
@@ -233,7 +243,7 @@
 
       <div class="footer" id="footer">
         <div class="fstatus"><span class="fdot"></span><span id="footerLabel">Idle</span></div>
-        <span class="ver">E7SSRefresher &middot; v2.0.5</span>
+        <span class="ver">E7SSRefresher &middot; v2.0.6</span>
       </div>
     </div>
   </div>
@@ -323,6 +333,7 @@
   $("startBtn").onclick  = () => { if (running) return; const a = api(); fmtBudget(); if (a) a.start(parseBudget()); setRunning(true); };
   $("stopBtn").onclick   = () => { if (!running) return; const a = api(); if (a) a.stop(); };
   $("darkSwitch").onclick = () => { const dark = !document.body.classList.contains("light") ? false : true; setDark(dark); const a = api(); if (a) a.set_dark(dark); };
+  $("keepAlive").onchange = () => { const a = api(); if (a) a.set_keep_alive($("keepAlive").checked); };
   $("clearLog").onclick  = () => { $("log").innerHTML = ""; };
   $("minBtn").onclick    = () => { const a = api(); if (a) a.minimize(); };
   $("closeBtn").onclick  = () => { const a = api(); if (a) a.close(); };
@@ -338,7 +349,11 @@
     } catch (e) {}
   };
   window.initSettings = function (s) {
-    try { $("budget").value = fmtNum(s.budget); setDark(s.dark); } catch (e) {}
+    try {
+      $("budget").value = fmtNum(s.budget);
+      setDark(s.dark);
+      $("keepAlive").checked = !!s.keepAlive;
+    } catch (e) {}
   };
 </script>
 </body>

@@ -360,17 +360,23 @@ def _pause_if_minimized(bot: "Bot") -> bool:
     return True
 
 
-def _wait_for_shop_screen(bot: "Bot") -> None:
+def _wait_for_shop_screen(bot: "Bot") -> bool:
     """If the Secret Shop isn't visible (you navigated away), pause and wait until it's back,
-    then resume. A short grace first avoids noise during normal screen reloads."""
+    then resume. A short grace first avoids noise during normal screen reloads. With
+    keep_alive_on_leave off, leaving the shop ends the run instead of pausing.
+    Returns True to continue the run, False to stop it."""
     grace = time.time() + 3.0
     while time.time() < grace and not _abort:
         bot.dismiss_dialog()
         if V.on_secret_shop_screen(bot.grab(), bot.th):
-            return
+            return True
         time.sleep(0.5)
     if _abort:
-        return
+        return False
+    if not bot.cfg.get("keep_alive_on_leave", True):
+        log.info("Left the Secret Shop — stopping (\"Keep running when leaving the shop\" "
+                 "is off).")
+        return False
     log.warning("Secret Shop not visible — paused. Return to the Secret Shop to resume "
                 "(or press Stop).")
     while not _abort:
@@ -379,8 +385,9 @@ def _wait_for_shop_screen(bot: "Bot") -> None:
             if V.on_secret_shop_screen(bot.grab(), bot.th):
                 log.info("Back on the Secret Shop — resuming.")
                 bot.fit_window()
-                return
+                return True
         time.sleep(1.0)
+    return False
 
 
 def run(bot: "Bot"):
@@ -405,8 +412,10 @@ def run(bot: "Bot"):
         try:
             bot.dismiss_dialog()  # clear any stray popup before acting
             if not V.on_secret_shop_screen(bot.grab(), bot.th):
-                # Navigated away from the shop (or starting off it) — wait for it to return.
-                _wait_for_shop_screen(bot)
+                # Navigated away from the shop (or starting off it) — wait for it to return,
+                # or end the run if keep-alive is off.
+                if not _wait_for_shop_screen(bot):
+                    break
                 continue
 
             bot.buy_targets()
