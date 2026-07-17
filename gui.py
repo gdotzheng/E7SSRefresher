@@ -43,6 +43,7 @@ WEBUI = os.path.join(_res_dir(), "webui", "index.html")
 
 _api = None     # set in main(); referenced by the push loop
 _window = None
+_shutdown = threading.Event()
 
 
 def is_admin() -> bool:
@@ -241,19 +242,20 @@ def _push_loop():
     """Drive the UI from Python via evaluate_js. Runs in its own thread (started by
     webview.start), so updates land even when the window is in the background and Chromium
     would have throttled a JS-side timer. evaluate_js executes regardless of focus."""
-    time.sleep(0.4)
+    if _shutdown.wait(0.4):
+        return
     try:
         _window.evaluate_js("window.initSettings && window.initSettings(%s); 1"
                             % json.dumps(_api.get_init()))
     except Exception:
         pass
-    while True:
+    while not _shutdown.is_set():
         try:
             _window.evaluate_js("window.applyState && window.applyState(%s); 1"
                                 % json.dumps(_api.poll()))
         except Exception:
             pass
-        time.sleep(0.4)
+        _shutdown.wait(0.4)
 
 
 def main():
@@ -273,10 +275,21 @@ def main():
         frameless=True, easy_drag=False, resizable=False,
         background_color="#15181e")
 
+    def _on_closed():
+        # Stop the bot and the push loop so no thread outlives the window.
+        _shutdown.set()
+        R.request_abort()
+
+    _window.events.closed += _on_closed
+
     if not is_admin():
         R.log.warning("NOT running as administrator — Epic Seven runs elevated, so clicks "
                       "will fail with 'Access denied'. Relaunch and accept the UAC prompt.")
     webview.start(_push_loop)
+    # webview.start returns once the window is gone. WebView2/pythonnet leave non-daemon CLR
+    # threads behind that keep the process alive, so force a hard exit.
+    _on_closed()
+    os._exit(0)
 
 
 if __name__ == "__main__":
