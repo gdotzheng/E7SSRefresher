@@ -116,8 +116,7 @@
 
   /* config */
   .configrow { display: flex; align-items: flex-end; gap: 12px; }
-  .checks { display: flex; flex-direction: column; }
-  .checks .checkline { height: 26px; }
+  .checks { display: flex; align-items: center; gap: 16px; }
   .field { display: flex; flex-direction: column; gap: 6px; }
   .fieldlabel { font-size: 11.5px; color: var(--muted); font-weight: 500; }
   .inputwrap { display: flex; align-items: center; height: 38px; width: 200px; background: var(--input-bg);
@@ -144,8 +143,16 @@
   .btn.run.disabled { cursor: default; opacity: .9; }
 
   /* stats */
-  .statsgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  /* 6 tracks so a short last row can still fill the width: normally 3 cards per row (span 2);
+     a lone last card spans the row, and a trailing pair split it (span 3 each). */
+  .statsgrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .statcard { grid-column: span 2; }
   .statcard:last-child:nth-child(3n+1) { grid-column: 1 / -1; }
+  .statcard:nth-last-child(2):nth-child(3n+1),
+  .statcard:nth-last-child(2):nth-child(3n+1) + .statcard { grid-column: span 3; }
+  .statcard.pair { flex-direction: row; gap: 0; }
+  .statcard.pair > div { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .statcard.pair > div + div { border-left: 1px solid var(--stat-border); padding-left: 13px; }
   .statcard { background: var(--stat-bg); border: 1px solid var(--stat-border); border-radius: 8px;
     padding: 11px 13px; display: flex; flex-direction: column; gap: 6px; }
   .statcard .k { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2);
@@ -218,14 +225,14 @@
             </div>
             <div class="checks">
               <label class="checkline"
-                     title="Checked: leaving the Secret Shop pauses the run and it auto-resumes when you return. Unchecked: leaving the shop stops the run.">
-                <input type="checkbox" id="keepAlive" checked>
-                <span>Auto-resume when returning to shop</span>
-              </label>
-              <label class="checkline"
                      title="Also buy Friendship Bookmarks when they appear in the shop (Covenant Bookmarks and Mystic Medals are always bought).">
                 <input type="checkbox" id="buyFriendship">
                 <span>Buy Friendship Bookmarks</span>
+              </label>
+              <label class="checkline"
+                     title="Checked: leaving the Secret Shop pauses the run and it auto-resumes when you return. Unchecked: leaving the shop stops the run.">
+                <input type="checkbox" id="keepAlive" checked>
+                <span>Auto-resume when returning to shop</span>
               </label>
             </div>
           </div>
@@ -259,9 +266,8 @@
 
 <script>
   const STAT_DEFS = [
-    { key: "refreshes",   label: "Refreshes" },
+    { key: "refreshes",   label: "Refreshes", pair: { key: "budget_left", label: "Budget left" } },
     { key: "spent",       label: "Skystones spent", hi: true },
-    { key: "budget_left", label: "Budget left" },
     { key: "covenant",    label: "Covenant bought" },
     { key: "mystic",      label: "Mystic bought" },
     { key: "friendship",  label: "Friendship bought", optional: true },
@@ -289,6 +295,17 @@
       if (d.key === "covenant") sub = perItem(s.covenant);
       else if (d.key === "mystic") sub = perItem(s.mystic);
       else if (d.key === "friendship") sub = perItem(s.friendship);
+      if (d.pair) {
+        // two stats sharing one box
+        let pv = s[d.pair.key];
+        if (typeof pv === "number") pv = fmtNum(pv);
+        grid.insertAdjacentHTML("beforeend",
+          `<div class="statcard pair">` +
+          `<div><span class="k">${d.label}</span><span class="v">${val ?? "0"}</span></div>` +
+          `<div><span class="k">${d.pair.label}</span><span class="v">${pv ?? "0"}</span></div>` +
+          `</div>`);
+        continue;
+      }
       grid.insertAdjacentHTML("beforeend",
         `<div class="statcard"><span class="k">${d.label}</span>` +
         `<span class="v${d.hi ? " hi" : ""}">${val ?? "0"}</span>` +
