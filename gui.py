@@ -97,7 +97,8 @@ class Api:
     def get_init(self):
         return {"budget": int(self.cfg.get("skystone_budget", 3000)),
                 "dark": bool(self.cfg.get("dark_mode", True)),
-                "keepAlive": bool(self.cfg.get("keep_alive_on_leave", True))}
+                "keepAlive": bool(self.cfg.get("keep_alive_on_leave", True)),
+                "buyFriendship": bool(self.cfg.get("buy_friendship", False))}
 
     def _detect(self):
         try:
@@ -124,16 +125,6 @@ class Api:
         # Return the cached result (kept fresh by the background loop) — never blocks the UI.
         return self._det
 
-    def save(self, budget):
-        b = self._parse(budget)
-        if b is None:
-            R.log.warning("Invalid budget.")
-            return {"ok": False}
-        self.cfg["skystone_budget"] = b
-        self._write_cfg()
-        R.log.info("Settings saved (budget %d).", b)
-        return {"ok": True}
-
     def set_dark(self, dark):
         self.cfg["dark_mode"] = bool(dark)
         self._write_cfg()
@@ -148,6 +139,12 @@ class Api:
         R.log.info("Auto-resume when returning to shop: %s.", "on" if on else "off")
         return {"ok": True}
 
+    def set_buy_friendship(self, on):
+        self.cfg["buy_friendship"] = bool(on)
+        self._write_cfg()
+        R.log.info("Buy Friendship Bookmarks: %s.", "on" if on else "off")
+        return {"ok": True}
+
     def start(self, budget):
         if self._running:
             return {"ok": False}
@@ -159,9 +156,13 @@ class Api:
         if gw is None:
             R.log.error("Game not found. Launch Epic Seven and open the Secret Shop.")
             return {"ok": False}
+        # The budget typed into the panel is saved automatically when a run starts.
+        self.cfg["skystone_budget"] = b
+        self._write_cfg()
         cfg = dict(self.cfg)
-        cfg["skystone_budget"] = b
         cfg["buy_targets"] = ["covenant_bookmark", "mystic_medal"]
+        if cfg.get("buy_friendship"):
+            cfg["buy_targets"].append("friendship_points")
         self._running = True
         R.reset_abort()
 
@@ -207,10 +208,11 @@ class Api:
                      "budget_left": max(0, budget - spent),
                      "covenant": s["bought"].get("covenant_bookmark", 0),
                      "mystic": s["bought"].get("mystic_medal", 0),
+                     "friendship": s["bought"].get("friendship_points", 0),
                      "elapsed": self._elapsed}
         else:
             stats = {"refreshes": 0, "spent": 0, "budget_left": budget,
-                     "covenant": 0, "mystic": 0, "elapsed": "0m 00s"}
+                     "covenant": 0, "mystic": 0, "friendship": 0, "elapsed": "0m 00s"}
         d = self._det
         return {"detected": d["detected"], "status": d["status"], "size": d["size"],
                 "running": self._running, "stats": stats, "log": logs}

@@ -116,6 +116,8 @@
 
   /* config */
   .configrow { display: flex; align-items: flex-end; gap: 12px; }
+  .checks { display: flex; flex-direction: column; }
+  .checks .checkline { height: 26px; }
   .field { display: flex; flex-direction: column; gap: 6px; }
   .fieldlabel { font-size: 11.5px; color: var(--muted); font-weight: 500; }
   .inputwrap { display: flex; align-items: center; height: 38px; width: 200px; background: var(--input-bg);
@@ -143,6 +145,7 @@
 
   /* stats */
   .statsgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .statcard:last-child:nth-child(3n+1) { grid-column: 1 / -1; }
   .statcard { background: var(--stat-bg); border: 1px solid var(--stat-border); border-radius: 8px;
     padding: 11px 13px; display: flex; flex-direction: column; gap: 6px; }
   .statcard .k { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2);
@@ -213,12 +216,18 @@
                 <input id="budget" inputmode="numeric" value="3,000" spellcheck="false">
               </div>
             </div>
-            <div class="btn-soft" id="saveBtn">Save</div>
-            <label class="checkline"
-                   title="Checked: leaving the Secret Shop pauses the run and it auto-resumes when you return. Unchecked: leaving the shop stops the run.">
-              <input type="checkbox" id="keepAlive" checked>
-              <span>Auto-resume when returning to shop</span>
-            </label>
+            <div class="checks">
+              <label class="checkline"
+                     title="Checked: leaving the Secret Shop pauses the run and it auto-resumes when you return. Unchecked: leaving the shop stops the run.">
+                <input type="checkbox" id="keepAlive" checked>
+                <span>Auto-resume when returning to shop</span>
+              </label>
+              <label class="checkline"
+                     title="Also buy Friendship Bookmarks when they appear in the shop (Covenant Bookmarks and Mystic Medals are always bought).">
+                <input type="checkbox" id="buyFriendship">
+                <span>Buy Friendship Bookmarks</span>
+              </label>
+            </div>
           </div>
           <div class="runrow">
             <div class="btn run filled-accent" id="startBtn">&#9654;&ensp;Start</div>
@@ -255,6 +264,7 @@
     { key: "budget_left", label: "Budget left" },
     { key: "covenant",    label: "Covenant bought" },
     { key: "mystic",      label: "Mystic bought" },
+    { key: "friendship",  label: "Friendship bought", optional: true },
     { key: "elapsed",     label: "Elapsed" },
   ];
   const LOG_COLOR = { info: "var(--info)", buy: "var(--accent)", refresh: "var(--refresh)", warn: "var(--warn)" };
@@ -270,12 +280,15 @@
     grid.innerHTML = "";
     // avg skystones spent per item bought (total skystones / count)
     const perItem = n => (n > 0 ? fmtNum(Math.round(s.spent / n)) + " sky/ea" : "—");
+    const showFriendship = $("buyFriendship").checked || s.friendship > 0;
     for (const d of STAT_DEFS) {
+      if (d.optional && !showFriendship) continue;
       let val = s[d.key];
       if (typeof val === "number") val = fmtNum(val);
       let sub = "";
       if (d.key === "covenant") sub = perItem(s.covenant);
       else if (d.key === "mystic") sub = perItem(s.mystic);
+      else if (d.key === "friendship") sub = perItem(s.friendship);
       grid.insertAdjacentHTML("beforeend",
         `<div class="statcard"><span class="k">${d.label}</span>` +
         `<span class="v${d.hi ? " hi" : ""}">${val ?? "0"}</span>` +
@@ -329,11 +342,11 @@
   function fmtBudget() { $("budget").value = fmtNum(parseBudget()); }
 
   $("budget").addEventListener("blur", fmtBudget);
-  $("saveBtn").onclick   = () => { const a = api(); fmtBudget(); if (a) a.save(parseBudget()); };
   $("startBtn").onclick  = () => { if (running) return; const a = api(); fmtBudget(); if (a) a.start(parseBudget()); setRunning(true); };
   $("stopBtn").onclick   = () => { if (!running) return; const a = api(); if (a) a.stop(); };
   $("darkSwitch").onclick = () => { const dark = !document.body.classList.contains("light") ? false : true; setDark(dark); const a = api(); if (a) a.set_dark(dark); };
   $("keepAlive").onchange = () => { const a = api(); if (a) a.set_keep_alive($("keepAlive").checked); };
+  $("buyFriendship").onchange = () => { const a = api(); if (a) a.set_buy_friendship($("buyFriendship").checked); };
   $("clearLog").onclick  = () => { $("log").innerHTML = ""; };
   $("minBtn").onclick    = () => { const a = api(); if (a) a.minimize(); };
   $("closeBtn").onclick  = () => { const a = api(); if (a) a.close(); };
@@ -353,6 +366,7 @@
       $("budget").value = fmtNum(s.budget);
       setDark(s.dark);
       $("keepAlive").checked = !!s.keepAlive;
+      $("buyFriendship").checked = !!s.buyFriendship;
     } catch (e) {}
   };
 </script>

@@ -21,8 +21,9 @@ reading or packet manipulation.
 2. Launch **Epic Seven** in windowed mode and open the **Secret Shop**.
 3. Run the .exe and **accept the UAC prompt**. Epic Seven runs elevated, so the app must too —
    otherwise every click fails with "Access is denied".
-4. Set your **skystone budget**, hit **Save**, then **▶ Start**. The game window is resized once to
-   the resolution the templates were captured at, then the loop takes over. You can alt-tab away.
+4. Set your **skystone budget** (saved automatically when you start), then **▶ Start**. The game
+   window is resized once to the resolution the templates were captured at, then the loop takes
+   over. You can alt-tab away.
 
 Settings and output live in **`%APPDATA%\E7SSRefresher\`** — an editable `config.json` (seeded on
 first run) plus any `debug_*.png` the bot saves when it hits an unexpected screen.
@@ -33,12 +34,15 @@ A frameless pywebview window (`webui/index.html` rendered in Edge WebView2, buil
 
 - **Status** – auto-detects Epic Seven every 2s and shows its client size. No button to press; the
   dot goes green when the game is found.
-- **Skystone budget** + **Save** – how many skystones to burn on refreshes (each refresh = 3).
+- **Skystone budget** – how many skystones to burn on refreshes (each refresh = 3). Saved
+  automatically when you press Start.
+- **Buy Friendship Bookmarks** – also buy Friendship Bookmarks when they show up (Covenant
+  Bookmarks and Mystic Medals are always bought).
 - **Auto-resume when returning to shop** – checked: navigating away from the Secret Shop *pauses*
   the run and it picks back up when you return. Unchecked: leaving the shop ends the run.
 - **▶ Start / ■ Stop**.
-- **Stats** – refreshes, skystones spent, budget left, Covenant/Mystic bought (each with an average
-  *skystones per item*), elapsed time.
+- **Stats** – refreshes, skystones spent, budget left, Covenant/Mystic (and Friendship, when enabled)
+  bought (each with an average *skystones per item*), elapsed time.
 - **Activity log** – colour-coded (buys green, refreshes blue, warnings amber).
 - **Dark mode** toggle – remembered across launches.
 
@@ -108,7 +112,8 @@ Everything below is optional tuning — the shipped defaults are the verified wo
 | `max_consecutive_fails` | failed cycles in a row before giving up; transient misses are retried, not fatal |
 | `scroll` | how the item list is walked: `point` (where to wheel), `step_notches`, `max_pages`, `list_region_x`/`change_threshold` (bottom detection, measured on the list only so the animated character art doesn't count as movement) |
 | `abort_hotkey` | CLI stop key (default `f12`) |
-| `buy_targets` | **CLI only** — the panel always buys Covenant Bookmarks + Mystic Medals. A `friendship_points` template is bundled if you want to add it to a CLI run |
+| `buy_targets` | **CLI only** — the panel always buys Covenant Bookmarks + Mystic Medals, plus `friendship_points` when the checkbox is on |
+| `buy_friendship` | the panel's **Buy Friendship Bookmarks** checkbox |
 | `mode` / `capture_backend` | input and capture backends, `background`/`wgc` by default and verified working. Only change these if capture comes back black — see Troubleshooting |
 
 ## Files

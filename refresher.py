@@ -97,7 +97,8 @@ def load_config(path: str = CONFIG_PATH) -> dict:
 REFRESH_COST = 3
 
 # Friendly names for the log / UI.
-DISPLAY_NAMES = {"covenant_bookmark": "Covenant Bookmark", "mystic_medal": "Mystic Medal"}
+DISPLAY_NAMES = {"covenant_bookmark": "Covenant Bookmark", "mystic_medal": "Mystic Medal",
+                 "friendship_points": "Friendship Bookmark"}
 
 
 def _name(target: str) -> str:
